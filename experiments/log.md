@@ -104,3 +104,46 @@ mean CV accuracy as noise, unless they show up on every fold.
   prune it in the feature selection step (E07).
 - **Decision:** keep `state_t30`. Next is E02: this snapshot says nothing about *how*
   the battle got there, so we look at the trend over the 30 turns.
+
+---
+
+## E02: battle trajectory over the 30 turns
+
+- **Commit:** `25347dc`
+- **Hypothesis:** two battles can look the same at turn 30 and still be heading in
+  opposite directions. In one P1 has led from the start, in the other P1 was far behind
+  and has just caught up. If momentum carries into the hidden turns, the path to turn 30
+  should add information on top of the E01 snapshot.
+- **What we built** (feature group `trajectory`, 19 new features): we rebuild each
+  team's total HP and faint count after every turn, using the same last-seen logic as
+  E01, and summarise the HP difference between the teams:
+  - its value at turns 5, 10, 15, 20 and 25 (turn 30 is already in E01)
+  - mean, minimum, maximum and slope over the 30 turns
+  - number of turns with P1 ahead, and number of lead changes
+  - change over the last 5 and last 10 turns, per side and as a difference
+  - turn of the first faint and number of faints in the last 10 turns, per side
+- **Model:** unchanged (scaled logistic regression), so the comparison with E01 is
+  about the features only.
+- **Result:** CV **0.6657 ± 0.0061** (folds 0.6570 / 0.6720 / 0.6600 / 0.6715 / 0.6680).
+  That is 0.14 points *below* E01, inside the noise, and lower on four of five folds.
+  The trajectory adds nothing.
+- **Why not?** We tested three explanations (`analysis/e02_checks.py`, same folds):
+  - **H1, the information is already in E01.** The trajectory features alone reach
+    0.6534, almost as much as E01, and the strongest ones follow the turn-30 HP
+    difference closely: correlation 0.90 for the slope, 0.89 for the minimum, 0.87 for
+    the value at turn 25. They mostly restate where the battle ended up.
+    **Supported.**
+  - **H2, the signal is non-linear.** Momentum could matter only in combination with
+    other features ("ahead, but losing ground"), which a linear model cannot express.
+    A gradient boosting model with default settings scores 0.6707 on the E01 features
+    and 0.6700 with the trajectory added. No gain there either. **Rejected.**
+  - **H3, a few features help but drown in the rest.** Adding each trajectory feature
+    to E01 on its own moves CV by at most +0.16 points (HP difference at turn 10),
+    below our noise threshold. **Rejected.**
+- **Takeaway:** in this data, where the battle stands at turn 30 already sums up how
+  it got there. Knowing the path does not help predict the hidden turns. Our hypothesis
+  was wrong, and we would rather report that than keep features that only add noise.
+  A side result from H2: gradient boosting on the E01 features (0.6707) is slightly
+  ahead of logistic regression (0.6671). We will look at this properly in E06.
+- **Decision:** do **not** carry the `trajectory` group forward. It stays in the code
+  so E02 can be reproduced, but E03 builds on the E01 feature set.

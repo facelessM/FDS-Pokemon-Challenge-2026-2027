@@ -24,6 +24,7 @@ Each row links to the commit that produced it and is explained in
 |---|---|---|---|
 | E00 | Starter notebook features + logistic regression | 0.5178 ± 0.0080 | |
 | E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 | 0.6787 |
+| E02 | + battle trajectory over 30 turns (not kept: no gain) | 0.6657 ± 0.0061 | |
 
 ## Repository layout
 
@@ -38,6 +39,8 @@ src/
 experiments/
   log.md               what we tried, why, what happened, what we decided
   results.csv          raw CV numbers, appended by run.py with the commit hash
+analysis/
+  eXX_checks.py        side checks quoted in the log, same folds as the experiments
 notebooks/
   kaggle.ipynb         clones this repo on Kaggle and builds the final submissions
 ```
