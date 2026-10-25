@@ -8,6 +8,7 @@ and returns a fresh, untrained estimator. We build a new one for every
 fold so nothing leaks between folds.
 """
 
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -31,9 +32,20 @@ def logreg_scaled(seed):
     )
 
 
+def gb_default(seed):
+    """Gradient boosting with scikit-learn's default settings.
+
+    Not tuned on purpose. We run it next to every experiment as a check:
+    if a feature group only helps a non-linear model, this is where it
+    shows up.
+    """
+    return HistGradientBoostingClassifier(random_state=seed)
+
+
 MODELS = {
     "logreg_starter": logreg_starter,
     "logreg_scaled": logreg_scaled,
+    "gb_default": gb_default,
 }
 
 

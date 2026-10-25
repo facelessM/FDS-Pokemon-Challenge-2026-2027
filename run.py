@@ -95,10 +95,16 @@ def make_submission(test_ids, test_pred, sample, out_path):
     return sub
 
 
-def run_experiment(exp_name, data_dir=None, out_dir=None, log=True):
+def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     if exp_name not in EXPERIMENTS:
         sys.exit(f"Unknown experiment '{exp_name}'. Available: {', '.join(EXPERIMENTS)}")
-    config = EXPERIMENTS[exp_name]
+    config = dict(EXPERIMENTS[exp_name])
+
+    # Same features, different model (used for the gradient boosting check).
+    # The run is logged and saved under a name that shows the swap.
+    if model and model != config["model"]:
+        config["model"] = model
+        exp_name = f"{exp_name}[{model}]"
 
     # 1. Data
     data_dir = find_data_dir(data_dir)
@@ -155,9 +161,10 @@ def main():
     parser.add_argument("--data-dir", default=None, help="folder with train.jsonl (auto-detected if omitted)")
     parser.add_argument("--out-dir", default=None, help="where to write the submission csv")
     parser.add_argument("--no-log", action="store_true", help="do not append to experiments/results.csv")
+    parser.add_argument("--model", default=None, help="run the experiment's features with another model")
     args = parser.parse_args()
 
-    run_experiment(args.exp, args.data_dir, args.out_dir, log=not args.no_log)
+    run_experiment(args.exp, args.data_dir, args.out_dir, log=not args.no_log, model=args.model)
 
 
 if __name__ == "__main__":

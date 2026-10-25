@@ -44,4 +44,11 @@ EXPERIMENTS = {
         "features": ["starter", "state_t30", "matchup"],
         "model": "logreg_scaled",
     },
+
+    # E05: tell sacrifices (Explosion, Self-Destruct) apart from knockouts
+    # taken. Came out of the error analysis in E04.
+    "e05_sacrifice": {
+        "features": ["starter", "state_t30", "sacrifice"],
+        "model": "logreg_scaled",
+    },
 }

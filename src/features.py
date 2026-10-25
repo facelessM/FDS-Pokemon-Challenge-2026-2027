@@ -334,6 +334,37 @@ def matchup_features(battle, context):
 
 
 # ---------------------------------------------------------------------------
+# E05: sacrifices are not knockouts
+# ---------------------------------------------------------------------------
+
+# Moves that make the user faint on purpose to deal a big hit.
+SACRIFICE_MOVES = {"explosion", "selfdestruct"}
+
+
+def sacrifice_features(battle):
+    """Split each side's fainted count into sacrifices and knockouts taken.
+
+    E01 counts every fainted Pokemon the same way. But a Pokemon that used
+    Explosion chose to go down, usually taking a big chunk out of the
+    opponent, which is not the same as being knocked out. The error
+    analysis (E04) showed P1 does this far more often than P2.
+    """
+    feats = {}
+    for side in ("p1", "p2"):
+        n_fainted = sum(s["status"] == "fnt" for s in last_seen_states(battle, side).values())
+        n_sacrifice = sum(
+            (t[f"{side}_move_details"] or {}).get("name") in SACRIFICE_MOVES
+            for t in battle["battle_timeline"]
+        )
+        feats[f"{side}_n_sacrifice"] = n_sacrifice
+        feats[f"{side}_n_ko_taken"] = n_fainted - n_sacrifice
+
+    feats["diff_sacrifice"] = feats["p1_n_sacrifice"] - feats["p2_n_sacrifice"]
+    feats["diff_ko_taken"] = feats["p1_n_ko_taken"] - feats["p2_n_ko_taken"]
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
@@ -342,6 +373,7 @@ FEATURE_GROUPS = {
     "state_t30": state_t30_features,
     "trajectory": trajectory_features,
     "matchup": matchup_features,
+    "sacrifice": sacrifice_features,
 }
 
 
