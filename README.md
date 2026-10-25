@@ -23,7 +23,7 @@ Each row links to the commit that produced it and is explained in
 | Exp | What changed | CV accuracy | Public LB |
 |---|---|---|---|
 | E00 | Starter notebook features + logistic regression | 0.5178 ± 0.0080 | |
-| E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 | |
+| E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 | 0.6787 |
 
 ## Repository layout
 

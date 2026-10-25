@@ -93,7 +93,11 @@ mean CV accuracy as noise, unless they show up on every fold.
     models later.
   - Largest standardised coefficients: `diff_hp_total` (+0.51), `p2_hp_total` (-0.44),
     `diff_n_alive` (+0.16), `p1_n_fainted` (-0.14), `diff_active_boosts` (+0.12).
-- **Leaderboard:** to be submitted.
+- **Leaderboard:** public score **0.67866** (first submission, 25 Oct). That is 1.2 points
+  above CV. The public board scores only part of the 5,000 test battles, so its own
+  standard error is around one point, and a gap of this size is what we would expect
+  from chance. CV and leaderboard agree, which is the first sign that our local
+  validation can be trusted.
 - **Takeaway:** a static picture of turn 30 already moves us from a coin flip to about
   two battles out of three. Some features are redundant (`n_alive` is just
   `6 - n_fainted`). That does not hurt a regularised logistic regression, but we will
