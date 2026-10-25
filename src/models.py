@@ -8,8 +8,9 @@ and returns a fresh, untrained estimator. We build a new one for every
 fold so nothing leaks between folds.
 """
 
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -42,10 +43,31 @@ def gb_default(seed):
     return HistGradientBoostingClassifier(random_state=seed)
 
 
+def knn_scaled(seed):
+    """k-nearest neighbours: a battle is predicted like the most similar ones.
+
+    Distances only make sense on scaled inputs. k = 89 is the usual
+    square-root rule for the 8,000 battles in a training fold. The seed is
+    not used (k-NN has no randomness) but we keep the same signature.
+    """
+    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=89))
+
+
+def random_forest(seed):
+    """Random forest with default settings, apart from the number of trees.
+
+    300 trees instead of the default 100, so the result does not depend
+    much on the random draw. Trees do not need scaled inputs.
+    """
+    return RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
+
+
 MODELS = {
     "logreg_starter": logreg_starter,
     "logreg_scaled": logreg_scaled,
     "gb_default": gb_default,
+    "knn_scaled": knn_scaled,
+    "random_forest": random_forest,
 }
 
 

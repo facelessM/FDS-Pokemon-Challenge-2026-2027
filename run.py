@@ -19,6 +19,7 @@ import argparse
 import csv
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -131,10 +132,11 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     X_test = test_df[feature_cols]
     print(f"Experiment {exp_name}: {len(feature_cols)} features, model={config['model']}")
 
-    # 3. Cross validation
+    # 3. Cross validation (timed, since run time matters when comparing models)
+    start = time.time()
     cv = cross_validate(config["model"], X_train, y_train)
     folds = ", ".join(f"{s:.4f}" for s in cv["fold_scores"])
-    print(f"CV accuracy: {cv['mean']:.4f} +/- {cv['std']:.4f}  (folds: {folds})")
+    print(f"CV accuracy: {cv['mean']:.4f} +/- {cv['std']:.4f}  (folds: {folds})  [{time.time() - start:.0f}s]")
 
     # 4. Record it
     if log:
