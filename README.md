@@ -27,7 +27,7 @@ Each row links to the commit that produced it and is explained in
 | E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 | 0.6787 |
 | E02 | + battle trajectory over 30 turns (not kept: no gain) | 0.6657 ± 0.0061 | |
 | E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 | |
-| E04 | Error analysis of E01: no new features, plan shortened | | |
+| E04 | Error analysis of E01: no new features, plan redesigned | | |
 | E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
 
 ## Repository layout
