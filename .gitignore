@@ -1,0 +1,16 @@
+# Competition data stays out of the repo
+/data
+*.jsonl
+
+# Generated submissions (we upload them to Kaggle, no need to version them)
+submissions/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

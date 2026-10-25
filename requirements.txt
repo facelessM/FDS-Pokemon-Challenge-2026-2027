@@ -1,0 +1,4 @@
+# Tested with these versions. Kaggle images already ship with all of them.
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
