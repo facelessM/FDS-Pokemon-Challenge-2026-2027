@@ -87,6 +87,8 @@ calls `run_experiment`, so the submissions come from exactly the code in this re
   `random_state=42`. A change is kept only if the gain is clearly above the
   fold-to-fold noise (rule in `experiments/log.md`). We submit at most once or twice a
   day, as a sanity check.
+- **Two scores per experiment.** Scaled logistic regression is the main score; a
+  default gradient boosting model runs next to it as a check for non-linear signal.
 - **Every commit says what changed and what it did to the score.** The log entry
   explains the reasoning, the commit message gives the short version.
 

@@ -190,3 +190,34 @@ mean CV accuracy as noise, unless they show up on every fold.
   so far (`trajectory`, `matchup`) stay in the code and will be checked once more in the
   ablation step (E07) with the final tuned model, in case a non-linear model makes use
   of a weak signal that a linear one cannot. E04 builds on the E01 feature set.
+
+---
+
+## Plan update after E03
+
+Two feature groups in a row (trajectory, matchup) brought nothing. Both were
+reasonable ideas, but they came from intuition about the game rather than from the
+data. Before adding more features we change how we pick them.
+
+- **Error analysis comes next (E04).** We already keep the out-of-fold predictions of
+  every run. We look at where E01 goes wrong (close battles? battles P1 leads at turn
+  30 and still loses?) and let that decide what to build next.
+- **We go deeper where the signal is.** E01 counts every Pokémon's HP the same, so a
+  half-health Snorlax weighs as much as a half-health Pikachu. Strength of the
+  Pokémon still standing, and lasting effects (boosts, Substitute, Rest sleep versus
+  normal sleep), are the natural next step for the turn-30 state.
+- **Every experiment now reports two scores:** the scaled logistic regression as the
+  main score, plus a default gradient boosting model as a check, so a non-linear signal
+  cannot slip past us.
+
+| # | Step |
+|---|---|
+| E04 | Error analysis of E01 (out-of-fold predictions) |
+| E05 | Richer turn-30 state: strength-weighted HP, lasting effects, sleep type |
+| E06 | Moves and player behaviour |
+| E07 | Species identity with in-fold target encoding |
+| E08 | Model comparison |
+| E09 | Feature selection and group ablation, including `trajectory` and `matchup` |
+| E10 | Hyperparameter tuning inside CV |
+| E11 | Ensembling |
+| E12 | Robustness over several CV seeds, choice of the three final submissions |
