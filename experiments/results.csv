@@ -1,0 +1,2 @@
+date,commit,experiment,n_features,cv_mean,cv_std,fold_scores
+2026-10-25 20:30,45d623a,e00_starter,6,0.5178,0.0080,0.5145 0.5190 0.5325 0.5090 0.5140
