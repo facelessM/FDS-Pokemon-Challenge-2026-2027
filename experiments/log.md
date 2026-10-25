@@ -221,3 +221,59 @@ data. Before adding more features we change how we pick them.
 | E10 | Hyperparameter tuning inside CV |
 | E11 | Ensembling |
 | E12 | Robustness over several CV seeds, choice of the three final submissions |
+
+---
+
+## E04: error analysis of E01
+
+- **Script:** `analysis/e04_error_analysis.py` (analysis only, no new feature group)
+- **Question:** where does E01 go wrong, and what information is it missing?
+- **Confidence.** The model is well calibrated: accuracy rises from 53% on battles it
+  calls 50/50 to 87% on the ones it is most sure about. But 34% of battles sit within
+  10 points of 50/50, and there it is barely better than a coin flip. Even when it gives
+  P1 more than a 70% chance, P1 still loses 22% of those battles.
+- **Residuals.** We correlated candidate quantities that E01 does not use with the
+  residual (outcome minus predicted probability). Candidates for a richer turn-30
+  state (HP weighted by species strength, healthy and critical counts, Rest sleep versus
+  other sleep, volatile effects) all stay below |r| = 0.025. Player behaviour counts
+  (attacks, status moves, switches) correlate the most, up to |r| = 0.057, and a few
+  species (Snorlax, Machamp, Jolteon...) still alive at turn 30 reach 0.03 to 0.045.
+- **Do they turn into accuracy?** Added to E01, on the same folds:
+
+  | Added to E01 | LR | GB |
+  |---|---|---|
+  | nothing | 0.6671 | 0.6707 |
+  | behaviour counts | 0.6650 | 0.6721 |
+  | richer turn-30 state | 0.6661 | 0.6650 |
+  | species still alive (40 most common, both sides) | 0.6682 | 0.6731 |
+
+  None passes our threshold. The richer state we had planned for the next step would
+  not have helped, which is exactly what this analysis was for.
+- **How the dataset was built.** P1's win rate by the number of fainted Pokémon on each
+  side at turn 30 shows a clear pattern. In none of the 10,000 battles has P2 lost more
+  than one Pokémon more than P1, and when P2 has lost exactly one more, P1 wins every
+  time. P1 also loses 1.9 Pokémon on average against 0.5 for P2, yet wins half of the
+  battles. So P1 is, almost always, the side that is level or behind at turn 30. The
+  task is less "who is ahead?" and more "will the side that is behind come back?", which
+  is what the slides hint at with "the underdogs can win". It explains why the obvious
+  signal only takes us to about 67%.
+- **Can we trust the faint counts?** Two checks. Every use of Explosion or Self-Destruct
+  (3,877 by P1, 2,309 by P2) is marked as fainted. And low-HP Pokémon that left the field
+  and never came back, which is what an unrecorded knockout would look like, do not
+  explain the residual (|r| <= 0.028). The counts are reliable.
+- **One thing the checks did show:** P1 uses Explosion and Self-Destruct far more than
+  P2. Part of P1's extra faints are sacrifices, not knockouts taken, and E01 counts both
+  the same way. That is a fix to the turn-30 state with a clear reason behind it, so it
+  becomes E05.
+- **Decision:** the feature side is close to what this data allows. After E05 we move
+  to the model: comparison, the weak groups bundled with the best model, tuning and
+  ensembling. Updated plan:
+
+  | # | Step |
+  |---|---|
+  | E05 | Separate sacrifices from knockouts taken |
+  | E06 | Model comparison |
+  | E07 | Weak groups (trajectory, matchup, behaviour, species alive) with the chosen model |
+  | E08 | Hyperparameter tuning inside CV |
+  | E09 | Ensembling |
+  | E10 | Robustness over several CV seeds, choice of the three final submissions |

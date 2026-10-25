@@ -2,7 +2,7 @@
 E04: where does the E01 model go wrong?
 
 After two feature groups that did not help, we stop guessing and look at
-the errors. Three parts:
+the errors:
 
   1. Confidence. How many battles does the model call close to 50/50,
      and how accurate is it at each level of confidence?
@@ -12,6 +12,9 @@ the errors. Three parts:
      probability. A quantity that E01 does not use and that correlates
      with the residual carries information the model is missing. This
      lets us rank candidate features before building any of them.
+  4. Whether the best candidates turn into CV accuracy.
+  5. How the dataset was put together (knockouts on each side vs outcome).
+  6. Two checks that the knockout counts in the data can be trusted.
 
 The candidates come from two places: a richer turn-30 state (what kind
 of Pokemon are still standing, how healthy they are) and simple counts of
@@ -27,12 +30,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data import build_species_table, find_data_dir, load_battles
 from src.features import TEAM_SIZE, build_features, get_target, last_seen_states
-from src.validation import cross_validate
+from src.validation import N_SPLITS, SEED, cross_validate
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +141,76 @@ def main():
     r_hard = C[hard].corrwith(pd.Series(resid[hard], index=C.index[hard]))
     print(f"\n   Inside the hard battles only ({hard.mean():.0%} of the data), top 8:")
     print(r_hard.sort_values(key=np.abs, ascending=False).head(8).round(3).to_string())
+
+    # 4. Do the candidates turn into accuracy? Same folds, both models.
+    print("\n4. CV accuracy when the candidates are added to E01")
+    behaviour = [c for c in C.columns if any(k in c for k in ("switches", "status_moves", "attacks"))]
+    state = [c for c in C.columns if c not in behaviour]
+    species_alive = alive_species_indicators(train)
+    for name, extra in [("none (E01)", None), ("behaviour counts", C[behaviour]),
+                        ("richer turn-30 state", C[state]), ("species still alive", species_alive)]:
+        M = X if extra is None else pd.concat([X, extra], axis=1)
+        print(f"   {name:22s} {both_models(M, y)}")
+
+    # 5. How the data was put together: P1 win rate by knockouts on each side.
+    print("\n5. P1 win rate by number of fainted Pokemon at turn 30 (rows P1, columns P2)")
+    grid = pd.DataFrame({"p1": X["p1_n_fainted"], "p2": X["p2_n_fainted"], "won": y})
+    print(grid.pivot_table(index="p1", columns="p2", values="won", aggfunc="mean").round(2).to_string())
+    print(f"   Battles where P2 lost more than one Pokemon more than P1: "
+          f"{(grid['p2'] > grid['p1'] + 1).sum()}")
+
+    # 6. Two data quality checks behind the faint counts.
+    print("\n6. Data quality")
+    sacrifices = {"explosion", "selfdestruct"}
+    for side in ("p1", "p2"):
+        uses = [(t, i, b) for b in train for i, t in enumerate(b["battle_timeline"])
+                if (t[f"{side}_move_details"] or {}).get("name") in sacrifices]
+        marked = sum(t[f"{side}_pokemon_state"]["status"] == "fnt" for t, _, _ in uses)
+        print(f"   {side}: Explosion/Self-Destruct used {len(uses)} times, marked as fainted {marked} times")
+    # A knockout the timeline forgot to mark would look like a low-HP Pokemon
+    # that leaves the field and never comes back. If those were real faints,
+    # their count would explain part of the residual.
+    for side in ("p1", "p2"):
+        vanished = np.array([vanished_low_hp(b, side) for b in train])
+        print(f"   {side}: low-HP Pokemon gone since turn 27 or earlier, mean {vanished.mean():.3f}, "
+              f"residual corr {np.corrcoef(vanished, resid)[0, 1]:+.3f}")
+
+
+def both_models(X, y):
+    """CV accuracy of the main model and of the gradient boosting check."""
+    lr = cross_validate("logreg_scaled", X, y)
+    folds = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
+    gb = cross_val_score(HistGradientBoostingClassifier(random_state=SEED), X, y, cv=folds)
+    return f"LR {lr['mean']:.4f} +/- {lr['std']:.4f}   GB {gb.mean():.4f} +/- {gb.std():.4f}"
+
+
+def alive_species_indicators(battles, n_species=40):
+    """For the 40 most common species: does each side still have it at turn 30?
+
+    For P1 'has it' means it is in the team, for P2 that it was revealed.
+    """
+    counts = pd.Series([p["name"] for b in battles for p in b["p1_team_details"]]).value_counts()
+    top = list(counts.index[:n_species])
+    rows = []
+    for b in battles:
+        row = {}
+        for side in ("p1", "p2"):
+            states = last_seen_states(b, side)
+            names = {p["name"] for p in b["p1_team_details"]} if side == "p1" else set(states)
+            for n in top:
+                row[f"{side}_alive_{n}"] = int(n in names and states.get(n, {}).get("status") != "fnt")
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def vanished_low_hp(battle, side, max_hp=0.25, last_turn=27):
+    """Pokemon last seen below 25% HP, not fainted, and absent since turn 27."""
+    last, seen_at = {}, {}
+    for t in battle["battle_timeline"]:
+        s = t[f"{side}_pokemon_state"]
+        last[s["name"]], seen_at[s["name"]] = s, t["turn"]
+    return sum(1 for n, s in last.items()
+               if s["status"] != "fnt" and s["hp_pct"] < max_hp and seen_at[n] <= last_turn)
 
 
 if __name__ == "__main__":
