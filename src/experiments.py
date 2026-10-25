@@ -14,4 +14,19 @@ EXPERIMENTS = {
         "features": ["starter"],
         "model": "logreg_starter",
     },
+
+    # Control for E01: same starter features, but with scaling. E01 changes
+    # both the features and the model, so we need this run to know how much
+    # of the E01 gain is just the scaler.
+    "e00b_starter_scaled": {
+        "features": ["starter"],
+        "model": "logreg_scaled",
+    },
+
+    # E01: add the state of the battle at turn 30 (faints, remaining HP,
+    # statuses, active Pokemon). This is where we expect most of the signal.
+    "e01_state_t30": {
+        "features": ["starter", "state_t30"],
+        "model": "logreg_scaled",
+    },
 }

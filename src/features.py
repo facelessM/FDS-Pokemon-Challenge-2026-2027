@@ -44,11 +44,112 @@ def starter_features(battle):
 
 
 # ---------------------------------------------------------------------------
+# E01: where the battle stands after turn 30
+# ---------------------------------------------------------------------------
+
+# Every team in this format has six Pokemon. We know all six for P1, but
+# for P2 we only see the ones that have been sent out.
+TEAM_SIZE = 6
+
+# Non-volatile status conditions as they appear in the data. "fnt"
+# (fainted) is handled separately since it means the Pokemon is out.
+STATUSES = ["slp", "par", "psn", "tox", "frz", "brn"]
+
+
+def last_seen_states(battle, side):
+    """Return {pokemon name: its state the last time it was on the field}.
+
+    The timeline only shows the active Pokemon on each turn. A Pokemon
+    sitting on the bench keeps the HP and status it had when it left
+    (Leftovers and Rest only work while active), so its last appearance
+    is still the right picture of it at turn 30.
+    """
+    last = {}
+    for turn in battle["battle_timeline"]:
+        state = turn[f"{side}_pokemon_state"]
+        last[state["name"]] = state
+    return last
+
+
+def side_summary(states, n_unseen, prefix):
+    """Summarise one side from its last-seen states.
+
+    n_unseen is how many team members never showed up in the 30 turns.
+    They have not taken any damage yet, so we count them at full HP.
+    This holds for both sides: a Pokemon that has not switched in
+    cannot have been hit (Spikes damage only happens on switch-in).
+    """
+    alive = [s for s in states.values() if s["status"] != "fnt"]
+    n_fainted = len(states) - len(alive)
+
+    feats = {
+        f"{prefix}_n_fainted": n_fainted,
+        f"{prefix}_n_alive": TEAM_SIZE - n_fainted,
+        f"{prefix}_n_seen": len(states),
+        # Total remaining HP across the team, in "Pokemon" units: 6.0 means
+        # the whole team is untouched, 0 means everyone has fainted.
+        f"{prefix}_hp_total": sum(s["hp_pct"] for s in alive) + n_unseen,
+    }
+
+    # How many living team members carry each status.
+    for status in STATUSES:
+        feats[f"{prefix}_n_{status}"] = sum(s["status"] == status for s in alive)
+    feats[f"{prefix}_n_statused"] = sum(s["status"] != "nostatus" for s in alive)
+
+    return feats
+
+
+def active_summary(state, prefix):
+    """The Pokemon on the field at turn 30: HP, status and stat boosts."""
+    return {
+        f"{prefix}_active_hp": state["hp_pct"],
+        f"{prefix}_active_statused": int(state["status"] not in ("nostatus", "fnt")),
+        f"{prefix}_active_boosts": sum(state["boosts"].values()),
+    }
+
+
+def state_t30_features(battle):
+    """Snapshot of the battle at the end of the visible part (turn 30).
+
+    For each side: how many Pokemon fainted, how much HP the team has
+    left, how many are statused, and the condition of the active one.
+    Then the P1 minus P2 differences, since who is ahead matters more
+    than the raw numbers.
+    """
+    p1_states = last_seen_states(battle, "p1")
+    p2_states = last_seen_states(battle, "p2")
+
+    # P1: we know the full roster, so unseen = team members that never came in.
+    p1_names = {p["name"] for p in battle["p1_team_details"]}
+    p1_unseen = len(p1_names - set(p1_states))
+    # P2: we do not know the roster, so we assume a full team of six.
+    p2_unseen = max(TEAM_SIZE - len(p2_states), 0)
+
+    feats = {}
+    feats.update(side_summary(p1_states, p1_unseen, "p1"))
+    feats.update(side_summary(p2_states, p2_unseen, "p2"))
+
+    last_turn = battle["battle_timeline"][-1]
+    feats.update(active_summary(last_turn["p1_pokemon_state"], "p1"))
+    feats.update(active_summary(last_turn["p2_pokemon_state"], "p2"))
+
+    # Positive values mean P1 is ahead.
+    feats["diff_n_alive"] = feats["p1_n_alive"] - feats["p2_n_alive"]
+    feats["diff_hp_total"] = feats["p1_hp_total"] - feats["p2_hp_total"]
+    feats["diff_n_statused"] = feats["p2_n_statused"] - feats["p1_n_statused"]
+    feats["diff_active_hp"] = feats["p1_active_hp"] - feats["p2_active_hp"]
+    feats["diff_active_boosts"] = feats["p1_active_boosts"] - feats["p2_active_boosts"]
+
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
 FEATURE_GROUPS = {
     "starter": starter_features,
+    "state_t30": state_t30_features,
 }
 
 
