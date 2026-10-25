@@ -147,3 +147,46 @@ mean CV accuracy as noise, unless they show up on every fold.
   ahead of logistic regression (0.6671). We will look at this properly in E06.
 - **Decision:** do **not** carry the `trajectory` group forward. It stays in the code
   so E02 can be reproduced, but E03 builds on the E01 feature set.
+
+---
+
+## E03: team strength and type matchups
+
+- **Commit:** `e0b9560`
+- **Hypothesis:** the starter features failed because they described P1's team on its
+  own, and most OU teams look alike. What should matter is how the two teams compare:
+  who has the type advantage, and whether P2's revealed Pokémon are stronger than P1's.
+- **A data problem first.** For P2 we only get the details of the lead. Every other P2
+  Pokémon appears in the timeline by name only. The same species do appear with full
+  details on P1 teams in other battles, and a species always has the same types and base
+  stats (239 species, no conflicting entries). So we build a species table from the
+  training battles and look P2's Pokémon up there. It covers 99.98% of P2 timeline rows;
+  the few missing species (Natu, Unown, Remoraid...) are skipped. This uses only the
+  competition data, so it stays within the rules.
+- **What we built** (feature group `matchup`, 16 new features):
+  - mean base stat total of P1's team and of P2's revealed Pokémon, and the difference
+  - fastest Pokémon on each side
+  - team build: number of distinct types, Pokémon below level 100, Leftovers count
+  - type matchups, using the supplied chart and each Pokémon's own types (the best
+    STAB multiplier, since we do not know the movesets): P1 team against P2's lead,
+    team against team over all revealed pairs, and the two active Pokémon at turn 30
+- **Model:** unchanged (scaled logistic regression), built on the E01 feature set.
+- **Result:** CV **0.6665 ± 0.0058** (folds 0.6605 / 0.6745 / 0.6615 / 0.6725 / 0.6635),
+  0.06 points below E01. No gain.
+- **Why not?** (`analysis/e03_checks.py`, same folds)
+  - **The signal is weak, not redundant.** On their own the matchup features reach only
+    0.5267, one point above the scaled starter control (0.5164). Their correlation with
+    the turn-30 HP difference is between -0.07 and +0.12, so this is not E02 again: the
+    information is not hidden inside the turn-30 state, there is simply little of it.
+  - The best single feature, the type edge between the two active Pokémon, adds
+    0.23 points on its own, below our threshold.
+  - Gradient boosting with default settings: 0.6714 with the matchup features against
+    0.6707 without. No gain.
+- **Takeaway:** what the teams look like on paper says little about who wins. Two
+  likely reasons: OU teams are built to cover their weaknesses, and a type matchup based
+  on a Pokémon's own types misses the coverage moves it actually carries. What happens
+  in the battle matters far more than the matchup before it.
+- **Decision:** `matchup` does not join the main feature set. Both groups that failed
+  so far (`trajectory`, `matchup`) stay in the code and will be checked once more in the
+  ablation step (E07) with the final tuned model, in case a non-linear model makes use
+  of a weak signal that a linear one cannot. E04 builds on the E01 feature set.
