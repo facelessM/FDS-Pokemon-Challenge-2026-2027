@@ -25,8 +25,9 @@ from pathlib import Path
 
 import numpy as np
 
-from src.data import (build_species_table, find_data_dir, load_battles,
-                      load_sample_submission, load_type_chart)
+from src.data import (build_move_vocab, build_species_table, build_top_species,
+                      find_data_dir, load_battles, load_sample_submission,
+                      load_type_chart)
 from src.experiments import EXPERIMENTS
 from src.features import build_features, get_target
 from src.models import get_model
@@ -118,6 +119,8 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     context = {
         "type_chart": load_type_chart(data_dir),
         "species": build_species_table(train),
+        "move_vocab": build_move_vocab(train),
+        "top_species": build_top_species(train),
     }
 
     # 2. Features. We build train and test with the same function and

@@ -12,6 +12,8 @@ inside the battle itself (plus the supplied type chart). No outside
 tables, no usage stats, nothing typed in by hand about specific Pokemon.
 """
 
+from collections import Counter
+
 import numpy as np
 import pandas as pd
 
@@ -365,6 +367,92 @@ def sacrifice_features(battle):
 
 
 # ---------------------------------------------------------------------------
+# Final model: what the players did, and who is still standing
+# ---------------------------------------------------------------------------
+
+def move_usage_features(battle, context):
+    """How many times each side used each move in the 30 turns.
+
+    The turn-30 state says who is ahead. The moves say how each side plays:
+    stalling with Rest and Toxic, setting Spikes, going for Explosion trades.
+    The list of moves comes from the training battles (context["move_vocab"]).
+    """
+    feats = {}
+    for side in ("p1", "p2"):
+        used = Counter(t[f"{side}_move_details"]["name"]
+                       for t in battle["battle_timeline"] if t[f"{side}_move_details"])
+        for move in context["move_vocab"][side]:
+            feats[f"{side}_mv_{move}"] = used.get(move, 0)
+    return feats
+
+
+def move_effect_features(battle):
+    """What the moves actually did, read from HP changes between turns.
+
+    For each side: damage dealt per attacking move to the opponent's active
+    Pokemon (only when the same Pokemon is on the field before and after),
+    attacks that did nothing, HP healed, turns lost to sleep, paralysis or
+    freeze, and turns spent asleep or paralysed.
+    """
+    timeline = battle["battle_timeline"]
+    feats = {}
+    for me, opp in (("p1", "p2"), ("p2", "p1")):
+        damage, healed, lost, asleep, paralysed, no_effect = [], 0.0, 0, 0, 0, 0
+        for prev, cur in zip(timeline, timeline[1:]):
+            move = cur[f"{me}_move_details"]
+            before, after = prev[f"{opp}_pokemon_state"], cur[f"{opp}_pokemon_state"]
+            if move and move["category"] != "status" and before["name"] == after["name"]:
+                hit = before["hp_pct"] - after["hp_pct"]
+                damage.append(hit)
+                no_effect += hit <= 0
+
+            mine_before, mine = prev[f"{me}_pokemon_state"], cur[f"{me}_pokemon_state"]
+            same = mine_before["name"] == mine["name"]
+            if same and mine["hp_pct"] > mine_before["hp_pct"]:
+                healed += mine["hp_pct"] - mine_before["hp_pct"]
+            if move is None and same and mine["status"] in ("slp", "par", "frz"):
+                lost += 1
+            asleep += mine["status"] == "slp"
+            paralysed += mine["status"] == "par"
+
+        damage = np.array(damage) if damage else np.array([0.0])
+        feats[f"{me}_dmg_mean"] = damage.mean()
+        feats[f"{me}_dmg_total"] = damage.clip(min=0).sum()
+        feats[f"{me}_dmg_max"] = damage.max()
+        feats[f"{me}_n_hits"] = len(damage)
+        feats[f"{me}_no_effect_hits"] = no_effect
+        feats[f"{me}_heal_total"] = healed
+        feats[f"{me}_turns_lost"] = lost
+        feats[f"{me}_turns_slp"] = asleep
+        feats[f"{me}_turns_par"] = paralysed
+
+    for key in ("dmg_mean", "dmg_total", "dmg_max", "heal_total", "turns_lost",
+                "turns_slp", "turns_par", "no_effect_hits"):
+        feats[f"diffd_{key}"] = feats[f"p1_{key}"] - feats[f"p2_{key}"]
+    return feats
+
+
+def alive_species_features(battle, context):
+    """For the most common species: does each side still have it at turn 30?
+
+    For P1 that means it is on the team and has not fainted (a Pokemon that
+    never came in counts as alive). For P2 it means it was revealed and has
+    not fainted. The species list comes from the training battles.
+    """
+    feats = {}
+    for side in ("p1", "p2"):
+        states = last_seen_states(battle, side)
+        if side == "p1":
+            roster = {p["name"] for p in battle["p1_team_details"]}
+        else:
+            roster = set(states)
+        for name in context["top_species"]:
+            fainted = states.get(name, {}).get("status") == "fnt"
+            feats[f"{side}_alive_{name}"] = int(name in roster and not fainted)
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
@@ -374,6 +462,9 @@ FEATURE_GROUPS = {
     "trajectory": trajectory_features,
     "matchup": matchup_features,
     "sacrifice": sacrifice_features,
+    "move_usage": move_usage_features,
+    "move_effects": move_effect_features,
+    "alive_species": alive_species_features,
 }
 
 

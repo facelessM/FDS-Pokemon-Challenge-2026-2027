@@ -6,6 +6,7 @@ can work with plain Python lists and dicts.
 """
 
 import json
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -77,6 +78,34 @@ def build_species_table(battles):
                 "base_spe": poke["base_spe"],
             }
     return table
+
+
+def build_move_vocab(battles, min_battles=30):
+    """Moves worth a feature column, per side, learned from the training battles.
+
+    Moves are listed from most to least used overall, and a side keeps a
+    move if that side used it in at least `min_battles` battles. Rarer
+    moves would only add near-empty columns.
+    """
+    counts = Counter(
+        turn[f"{side}_move_details"]["name"]
+        for b in battles for turn in b["battle_timeline"] for side in ("p1", "p2")
+        if turn[f"{side}_move_details"]
+    )
+    vocab = {}
+    for side in ("p1", "p2"):
+        used_in = Counter()
+        for b in battles:
+            used_in.update({t[f"{side}_move_details"]["name"]
+                            for t in b["battle_timeline"] if t[f"{side}_move_details"]})
+        vocab[side] = [m for m, _ in counts.most_common() if used_in[m] >= min_battles]
+    return vocab
+
+
+def build_top_species(battles, n=60):
+    """The n species that appear most often on P1 teams in the training battles."""
+    counts = Counter(p["name"] for b in battles for p in b["p1_team_details"])
+    return [name for name, _ in counts.most_common(n)]
 
 
 def load_type_chart(data_dir):
