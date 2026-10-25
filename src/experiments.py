@@ -29,4 +29,12 @@ EXPERIMENTS = {
         "features": ["starter", "state_t30"],
         "model": "logreg_scaled",
     },
+
+    # E02: add the trajectory of the battle (HP difference along the way,
+    # slope, momentum in the last turns, timing of the knockouts). Same
+    # model as E01 so the comparison is only about the new features.
+    "e02_trajectory": {
+        "features": ["starter", "state_t30", "trajectory"],
+        "model": "logreg_scaled",
+    },
 }

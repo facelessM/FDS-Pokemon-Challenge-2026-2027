@@ -144,12 +144,104 @@ def state_t30_features(battle):
 
 
 # ---------------------------------------------------------------------------
+# E02: how the battle got to turn 30
+# ---------------------------------------------------------------------------
+
+# Turns at which we take a reading of the HP difference. Turn 30 itself is
+# already covered by diff_hp_total in E01, so we stop at 25.
+CHECKPOINTS = [5, 10, 15, 20, 25]
+
+# Value used for "first faint" when a side lost nothing in 30 turns.
+# One past the last turn, so "never" still sorts after "late".
+NO_FAINT = 31
+
+
+def team_series(battle, side, n_known):
+    """Team HP and faint count for one side, after every turn.
+
+    Same idea as last_seen_states, but we take a reading at each turn
+    instead of only at the end. n_known is the roster size we assume
+    (6 for both sides), and every Pokemon not seen yet counts at full HP.
+
+    Returns two lists of length 30: team HP and number fainted.
+    """
+    last = {}
+    hp_series, faint_series = [], []
+    for turn in battle["battle_timeline"]:
+        state = turn[f"{side}_pokemon_state"]
+        last[state["name"]] = state
+
+        alive = [s for s in last.values() if s["status"] != "fnt"]
+        n_unseen = max(n_known - len(last), 0)
+        hp_series.append(sum(s["hp_pct"] for s in alive) + n_unseen)
+        faint_series.append(len(last) - len(alive))
+    return hp_series, faint_series
+
+
+def count_lead_changes(diff):
+    """How many times the side in front changed.
+
+    Turns where the two teams are exactly level are skipped, so a run
+    like +, 0, + does not count as two changes.
+    """
+    signs = [np.sign(d) for d in diff if d != 0]
+    return sum(1 for a, b in zip(signs, signs[1:]) if a != b)
+
+
+def trajectory_features(battle):
+    """Summaries of the 30-turn HP race between the two teams.
+
+    E01 tells us where the battle ended up at turn 30. Here we look at the
+    path: was P1 ahead the whole time, did it fall behind and recover, is
+    the gap growing or shrinking at the end? If momentum carries over into
+    the hidden turns, these should add something on top of the snapshot.
+    """
+    p1_hp, p1_faints = team_series(battle, "p1", TEAM_SIZE)
+    p2_hp, p2_faints = team_series(battle, "p2", TEAM_SIZE)
+
+    # HP difference after each turn, positive when P1 is ahead.
+    diff = np.array(p1_hp) - np.array(p2_hp)
+    turns = np.arange(1, len(diff) + 1)
+
+    feats = {}
+
+    # Level of the race at a few points along the way.
+    for t in CHECKPOINTS:
+        feats[f"diff_hp_t{t}"] = diff[t - 1]
+
+    # Overall shape of the race.
+    feats["diff_hp_mean"] = diff.mean()
+    feats["diff_hp_min"] = diff.min()
+    feats["diff_hp_max"] = diff.max()
+    # Slope of a straight line through the 30 points, in HP per turn.
+    feats["diff_hp_slope"] = np.polyfit(turns, diff, 1)[0]
+    feats["turns_p1_ahead"] = int((diff > 0).sum())
+    feats["n_lead_changes"] = count_lead_changes(diff)
+
+    # Momentum at the very end of the visible window.
+    feats["diff_hp_change_last5"] = diff[-1] - diff[-6]
+    feats["diff_hp_change_last10"] = diff[-1] - diff[-11]
+    feats["p1_hp_change_last5"] = p1_hp[-1] - p1_hp[-6]
+    feats["p2_hp_change_last5"] = p2_hp[-1] - p2_hp[-6]
+
+    # When the knockouts happened. A team that lost its first Pokemon at
+    # turn 5 is in a different spot from one that lost it at turn 29.
+    feats["p1_first_faint_turn"] = next((t for t, f in zip(turns, p1_faints) if f > 0), NO_FAINT)
+    feats["p2_first_faint_turn"] = next((t for t, f in zip(turns, p2_faints) if f > 0), NO_FAINT)
+    feats["p1_faints_last10"] = p1_faints[-1] - p1_faints[-11]
+    feats["p2_faints_last10"] = p2_faints[-1] - p2_faints[-11]
+
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
 FEATURE_GROUPS = {
     "starter": starter_features,
     "state_t30": state_t30_features,
+    "trajectory": trajectory_features,
 }
 
 
