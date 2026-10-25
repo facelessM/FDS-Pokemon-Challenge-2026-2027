@@ -37,4 +37,11 @@ EXPERIMENTS = {
         "features": ["starter", "state_t30", "trajectory"],
         "model": "logreg_scaled",
     },
+
+    # E03: add team strength and type matchups. Built on E01, not E02,
+    # because the trajectory group was dropped.
+    "e03_matchup": {
+        "features": ["starter", "state_t30", "matchup"],
+        "model": "logreg_scaled",
+    },
 }

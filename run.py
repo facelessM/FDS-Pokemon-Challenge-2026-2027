@@ -24,7 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.data import find_data_dir, load_battles, load_sample_submission, load_type_chart
+from src.data import (build_species_table, find_data_dir, load_battles,
+                      load_sample_submission, load_type_chart)
 from src.experiments import EXPERIMENTS
 from src.features import build_features, get_target
 from src.models import get_model
@@ -105,8 +106,12 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True):
     train, test = load_battles(data_dir)
     print(f"Loaded {len(train)} train and {len(test)} test battles")
 
-    # Shared resources that some feature groups need.
-    context = {"type_chart": load_type_chart(data_dir)}
+    # Shared resources that some feature groups need. The species table is
+    # built from the training battles only and holds no labels.
+    context = {
+        "type_chart": load_type_chart(data_dir),
+        "species": build_species_table(train),
+    }
 
     # 2. Features. We build train and test with the same function and
     # then force the test columns to match train, so a feature that only

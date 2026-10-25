@@ -235,6 +235,105 @@ def trajectory_features(battle):
 
 
 # ---------------------------------------------------------------------------
+# E03: how the two teams match up
+# ---------------------------------------------------------------------------
+
+def type_multiplier(attack_type, defender_types, chart):
+    """Damage multiplier of one attacking type against a Pokemon.
+
+    Dual types multiply: Ground against Fire/Flying is 2 x 0 = 0.
+    The chart only lists non-neutral pairs, so anything missing is 1.
+    """
+    mult = 1.0
+    for d in defender_types:
+        mult *= chart.get((attack_type, d), 1.0)
+    return mult
+
+
+def best_stab(attacker_types, defender_types, chart):
+    """Best multiplier the attacker gets from its own types.
+
+    Pokemon get a bonus for moves that share their type (STAB), so their
+    own types are the attacks they are most likely to carry. We do not
+    know the full movesets, so this is the closest thing we can compute
+    before the battle starts.
+    """
+    if not attacker_types or not defender_types:
+        return 1.0
+    return max(type_multiplier(a, defender_types, chart) for a in attacker_types)
+
+
+def matchup_features(battle, context):
+    """Relative strength of the two teams: base stats and type matchups.
+
+    The starter features looked at P1's team on its own, and they told us
+    nothing because most OU teams look alike. Here every number compares
+    P1 with what we know of P2: its lead, the Pokemon it revealed during
+    the 30 turns, and the two Pokemon on the field at the end.
+    """
+    chart, species = context["type_chart"], context["species"]
+
+    p1_team = [
+        {"types": [t for t in p["types"] if t != "notype"],
+         "base_total": sum(p[f"base_{s}"] for s in ("hp", "atk", "def", "spa", "spd", "spe")),
+         "base_spe": p["base_spe"]}
+        for p in battle["p1_team_details"]
+    ]
+    p2_lead_types = [t for t in battle["p2_lead_details"]["types"] if t != "notype"]
+
+    # P2 Pokemon revealed in the timeline, looked up in the species table.
+    # The very few species missing from the table are left out.
+    p2_names = {t["p2_pokemon_state"]["name"] for t in battle["battle_timeline"]}
+    p2_seen = [species[n] for n in p2_names if n in species]
+
+    feats = {}
+
+    # Raw strength. Base stat total is the usual single number for how
+    # strong a species is. For P2 we can only use the revealed ones.
+    p1_totals = [p["base_total"] for p in p1_team]
+    p2_totals = [p["base_total"] for p in p2_seen] or [0]
+    feats["p1_base_total_mean"] = np.mean(p1_totals)
+    feats["p2_seen_base_total_mean"] = np.mean(p2_totals)
+    feats["diff_base_total_mean"] = feats["p1_base_total_mean"] - feats["p2_seen_base_total_mean"]
+    feats["diff_speed_max"] = max(p["base_spe"] for p in p1_team) - max((p["base_spe"] for p in p2_seen), default=0)
+
+    # Team build. Low levels and a missing Leftovers are rare in OU and
+    # often point to an unusual or joke team.
+    feats["p1_n_types"] = len({t for p in p1_team for t in p["types"]})
+    feats["p1_n_low_level"] = sum(p["level"] < 100 for p in battle["p1_team_details"])
+    feats["p1_n_leftovers"] = sum(p.get("item") == "leftovers" for p in battle["p1_team_details"])
+
+    # Against P2's lead: how many P1 Pokemon hit it super effectively with
+    # their own types, and how many it hits super effectively back.
+    p1_vs_lead = [best_stab(p["types"], p2_lead_types, chart) for p in p1_team]
+    lead_vs_p1 = [best_stab(p2_lead_types, p["types"], chart) for p in p1_team]
+    feats["p1_n_se_vs_lead"] = sum(m > 1 for m in p1_vs_lead)
+    feats["lead_n_se_vs_p1"] = sum(m > 1 for m in lead_vs_p1)
+    feats["diff_se_vs_lead"] = feats["p1_n_se_vs_lead"] - feats["lead_n_se_vs_p1"]
+
+    # Team against team, using every P2 Pokemon we have seen. For each pair
+    # we take the best type multiplier and average over all pairs.
+    if p2_seen:
+        p1_off = [best_stab(a["types"], d["types"], chart) for a in p1_team for d in p2_seen]
+        p2_off = [best_stab(a["types"], d["types"], chart) for a in p2_seen for d in p1_team]
+        feats["p1_type_offense"] = np.mean(p1_off)
+        feats["p2_type_offense"] = np.mean(p2_off)
+    else:
+        feats["p1_type_offense"] = feats["p2_type_offense"] = 1.0
+    feats["diff_type_offense"] = feats["p1_type_offense"] - feats["p2_type_offense"]
+
+    # The two Pokemon on the field at turn 30: who has the type edge right now?
+    last = battle["battle_timeline"][-1]
+    p1_active = species.get(last["p1_pokemon_state"]["name"], {"types": []})
+    p2_active = species.get(last["p2_pokemon_state"]["name"], {"types": []})
+    feats["active_p1_offense"] = best_stab(p1_active["types"], p2_active["types"], chart)
+    feats["active_p2_offense"] = best_stab(p2_active["types"], p1_active["types"], chart)
+    feats["diff_active_offense"] = feats["active_p1_offense"] - feats["active_p2_offense"]
+
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
@@ -242,6 +341,7 @@ FEATURE_GROUPS = {
     "starter": starter_features,
     "state_t30": state_t30_features,
     "trajectory": trajectory_features,
+    "matchup": matchup_features,
 }
 
 

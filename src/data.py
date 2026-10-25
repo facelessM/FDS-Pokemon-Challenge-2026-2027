@@ -57,6 +57,28 @@ def load_sample_submission(data_dir):
     return pd.read_csv(Path(data_dir) / "sample_submission.csv")
 
 
+def build_species_table(battles):
+    """Types and base stats per species, taken from the battles themselves.
+
+    For P2 we only get the details of the lead. Every other P2 Pokemon
+    shows up in the timeline by name only. The same species do appear
+    with full details on P1 teams in other battles, and a species always
+    has the same types and base stats, so we can look them up from there.
+
+    Built from the training battles only. Nothing here comes from outside
+    the competition data.
+    """
+    table = {}
+    for battle in battles:
+        for poke in battle["p1_team_details"] + [battle["p2_lead_details"]]:
+            table[poke["name"]] = {
+                "types": [t for t in poke["types"] if t != "notype"],
+                "base_total": sum(poke[f"base_{s}"] for s in ("hp", "atk", "def", "spa", "spd", "spe")),
+                "base_spe": poke["base_spe"],
+            }
+    return table
+
+
 def load_type_chart(data_dir):
     """Read the Gen 2 type chart supplied with the competition.
 
