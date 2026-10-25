@@ -277,3 +277,24 @@ data. Before adding more features we change how we pick them.
   | E08 | Hyperparameter tuning inside CV |
   | E09 | Ensembling |
   | E10 | Robustness over several CV seeds, choice of the three final submissions |
+
+---
+
+## E05: sacrifices are not knockouts
+
+- **Commit:** `6a6b8b1`
+- **Hypothesis:** a Pokémon that uses Explosion or Self-Destruct chooses to go down,
+  usually after a heavy hit on the opponent. That is a trade, not a loss, and E01
+  counts it the same as being knocked out. Since P1 sacrifices far more often than P2
+  (E04), splitting the two should give the model a cleaner picture of who is behind.
+- **What we built** (feature group `sacrifice`, 6 features): for each side the number
+  of sacrifices and the number of knockouts taken (fainted minus sacrifices), and the
+  P1 minus P2 difference of both.
+- **Result:** CV **0.6712 ± 0.0061** (folds 0.6630 / 0.6815 / 0.6680 / 0.6705 / 0.6730),
+  **+0.41 points** over E01, better on four of five folds.
+- **Gradient boosting check:** 0.6695 against 0.6707 for E01. No gain there: a tree
+  model can already tell the two kinds of faint apart from the counts it has, a linear
+  model cannot.
+- **Decision:** keep `sacrifice`. The gain is above our threshold for the main model and
+  has a clear reason behind it. The E05 feature set (starter + state_t30 + sacrifice) is
+  the base for the model comparison in E06.
