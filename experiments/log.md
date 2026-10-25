@@ -48,3 +48,55 @@ mean CV accuracy as noise, unless they show up on every fold.
   has to come from the timeline (who is ahead by turn 30) and from matchups.
 - **Decision:** keep as the baseline. Next step is E01/E02, starting with the state
   of the battle at turn 30 since that is where we expect most of the signal.
+
+---
+
+## E01: battle state at turn 30
+
+- **Commit:** `e2e6a82`
+- **Hypothesis:** the clearest signal in a 30-turn snapshot should be who is ahead
+  at the end of it: how many Pokémon each side has lost, how much HP the teams have
+  left, and who is carrying status conditions.
+- **What we built** (feature group `state_t30`, 33 new features):
+  - For each side we keep the *last seen* state of every Pokémon that appeared in the
+    timeline. A benched Pokémon keeps the HP and status it had when it left the field,
+    so its last appearance is still accurate at turn 30.
+  - Per side: fainted, alive and seen counts; total remaining HP over the whole team;
+    number of living Pokémon with each status; HP, status and stat boosts of the
+    active Pokémon.
+  - P1 minus P2 differences for alive count, team HP, statused count, active HP and
+    active boosts.
+- **Design choice: Pokémon we have not seen.** P2's team is hidden, so after 30 turns
+  we usually know only 4 to 6 of its Pokémon. We count every unseen Pokémon as being
+  at full HP, for both sides. This is not a guess: in Gen 2 a Pokémon cannot take
+  damage before it switches in (Spikes only hurt on entry). We assume P2 also has six
+  Pokémon, as every P1 team does.
+- **Data observation:** P1 loses far more Pokémon than P2 in the first 30 turns
+  (1.9 vs 0.5 on average) and yet wins exactly half the battles. So the raw faint
+  counts are not symmetric between the two sides, and the model has to learn the
+  offset rather than just compare the counts.
+- **Control run:** `e00b_starter_scaled` (starter features with scaling) gives
+  0.5164 ± 0.0063, the same as E00 within noise. The scaler on its own adds nothing,
+  so the whole E01 gain comes from the new features.
+- **Result:** CV **0.6671 ± 0.0046** (folds 0.6625 / 0.6725 / 0.6610 / 0.6710 / 0.6685),
+  **+14.9 points** over E00 and better on every fold.
+- **Side checks** (same folds, not separate experiments):
+  - `diff_hp_total` alone reaches 0.6519. Remaining team HP carries most of the
+    signal on its own.
+  - Faint counts alone reach only 0.6020. Losing a Pokémon matters, but how much HP
+    the rest of the team still has tells more.
+  - Dropping the six starter features: 0.6670, no change. They can go once we clean
+    up the feature set.
+  - Not counting unseen P2 Pokémon as full HP: 0.6670, no change either. A linear
+    model can make up for it through `p2_n_seen`. We keep the full-HP version because
+    it is the one that matches the game mechanics, and it may matter more for tree
+    models later.
+  - Largest standardised coefficients: `diff_hp_total` (+0.51), `p2_hp_total` (-0.44),
+    `diff_n_alive` (+0.16), `p1_n_fainted` (-0.14), `diff_active_boosts` (+0.12).
+- **Leaderboard:** to be submitted.
+- **Takeaway:** a static picture of turn 30 already moves us from a coin flip to about
+  two battles out of three. Some features are redundant (`n_alive` is just
+  `6 - n_fainted`). That does not hurt a regularised logistic regression, but we will
+  prune it in the feature selection step (E07).
+- **Decision:** keep `state_t30`. Next is E02: this snapshot says nothing about *how*
+  the battle got there, so we look at the trend over the 30 turns.
