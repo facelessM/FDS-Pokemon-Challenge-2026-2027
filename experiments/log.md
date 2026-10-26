@@ -382,3 +382,18 @@ data. Before adding more features we change how we pick them.
   ahead on four of five and varies less, which is why we keep it.
 - A random search over 20 LightGBM settings did not beat ours (best 0.6843, median
   0.6804). The mild settings (small trees, slow learning rate, subsampling) are enough.
+
+---
+
+## Gen 2 mechanics, shown directly
+
+`analysis/mechanics_tables.py`. Writing the mechanics as explicit features (Spikes that
+cannot be cleared, Explosion trade quality, setup threats left unanswered, how well
+attacks matched their targets) did not change the CV score: the final model already
+picks them up through HP, move usage and move effects. On their own they are strong:
+
+- Spikes stuck on P1's side at turn 30: P1 wins 40.5%. Stuck on P2's side: 58.8%.
+- P1's win rate rises from 42.2% to 56.4% across quintiles of attack effectiveness
+  (P1 minus P2).
+- The final model is least accurate in long, stall-heavy battles: 71.9% with no Rest
+  user, 59.4% with four or more. Those battles are decided in turns we cannot see.
