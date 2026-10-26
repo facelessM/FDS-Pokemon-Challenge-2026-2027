@@ -12,7 +12,7 @@ Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last betwee
 |---|---|---|
 | Özgür Cihan Karahan | 2233702 | karahan.2233702@studenti.uniroma1.it |
 | Gabriele Fiacconi | 2060444 | fiacconi.2060444@studenti.uniroma1.it |
-| Musa (TBD) | TBD | TBD |
+| Musa Alasgarov | 2242081 | alasgarov.2242081@studenti.uniroma1.it |
 
 ## Results so far
 
