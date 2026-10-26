@@ -357,3 +357,25 @@ data. Before adding more features we change how we pick them.
   is slightly optimistic. On CV seeds 6 to 10, never used during development
   (`analysis/final_checks.py`), the final model scores **0.6841 ± 0.0017** against
   0.6690 for E05: a gain of 1.5 points, on every seed.
+
+---
+
+## Model checks behind the final choice
+
+`analysis/model_checks.py` (seed 42) and `analysis/final_checks.py` (seeds 6 to 10).
+
+| Final features, model | CV seed 42 | CV seeds 6-10 |
+|---|---|---|
+| Logistic regression | 0.6713 ± 0.0136 | |
+| Gradient boosting, untuned | 0.6739 ± 0.0063 | |
+| LightGBM | 0.6878 ± 0.0044 | 0.6820 ± 0.0025 |
+| XGBoost | 0.6851 ± 0.0047 | |
+| LightGBM + XGBoost | 0.6875 ± 0.0058 | **0.6841 ± 0.0017** |
+
+- Logistic regression gets nothing out of the 359 new columns (0.6713, the E05 level,
+  with twice the fold spread): the move counts are wide and sparse, and their effect
+  depends on the battle state, which a linear model cannot combine.
+- On seed 42 the blend and LightGBM alone are level. On the untouched seeds the blend is
+  ahead on four of five and varies less, which is why we keep it.
+- A random search over 20 LightGBM settings did not beat ours (best 0.6843, median
+  0.6804). The mild settings (small trees, slow learning rate, subsampling) are enough.

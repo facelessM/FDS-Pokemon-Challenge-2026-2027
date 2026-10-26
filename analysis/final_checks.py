@@ -2,9 +2,10 @@
 How much of the final CV score is real?
 
 The usual folds (seed 42) were also used while we developed the features,
-so a score on them is slightly optimistic. Here the final model and the
-E05 baseline are scored on CV seeds 6 to 10, which were never used during
-development (seeds 1 to 5 were used to compare the final candidates).
+so a score on them is slightly optimistic. Here the final model, LightGBM
+alone and the E05 baseline are scored on CV seeds 6 to 10, which were never
+used during development (seeds 1 to 5 were used to compare the final
+candidates).
 
     python analysis/final_checks.py
 """
@@ -36,11 +37,16 @@ def main():
         "top_species": build_top_species(train),
     }
 
-    for name in ["e05_sacrifice", "final_blend"]:
-        config = EXPERIMENTS[name]
+    # (label, experiment, model). The third row is LightGBM alone on the
+    # final features, to see what the blend adds.
+    runs = [("e05_sacrifice", "e05_sacrifice", None),
+            ("final_blend", "final_blend", None),
+            ("lightgbm only", "final_blend", "lgbm_final")]
+    for label, exp, model in runs:
+        config = EXPERIMENTS[exp]
         X = build_features(train, config["features"], context).drop(columns="battle_id")
-        scores = [cross_validate(config["model"], X, y, seed=s)["mean"] for s in SEEDS]
-        print(f"{name:14s} seeds 6-10: {np.mean(scores):.4f} +/- {np.std(scores):.4f}  "
+        scores = [cross_validate(model or config["model"], X, y, seed=s)["mean"] for s in SEEDS]
+        print(f"{label:14s} seeds 6-10: {np.mean(scores):.4f} +/- {np.std(scores):.4f}  "
               f"({', '.join(f'{s:.4f}' for s in scores)})")
 
 
