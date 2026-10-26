@@ -486,6 +486,27 @@ def roles_features(battle):
 
 
 # ---------------------------------------------------------------------------
+# Team records: which known team each side is playing
+# ---------------------------------------------------------------------------
+
+def team_id_features(battle, context):
+    """Ids of the two teams, so the model can look up their past results.
+
+    P1's team is known in full. For P2 we take the known teams that contain
+    every P2 Pokemon seen in the 30 turns and keep the most common one. The
+    ids themselves are not used as features: TeamRecordModel (models.py)
+    turns them into win records inside each training fold.
+    """
+    index = context["teams"]
+    key = tuple(sorted(p["name"] for p in battle["p1_team_details"]))
+    seen = {turn["p2_pokemon_state"]["name"] for turn in battle["battle_timeline"]}
+    candidates = set.intersection(*(index["by_species"].get(n, set()) for n in seen))
+    p2 = max(candidates, key=lambda i: index["count"][i]) if candidates else -1
+    return {"p1_team_id": index["ids"].get(key, -1), "p2_team_id": p2,
+            "p2_team_candidates": len(candidates)}
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
@@ -499,6 +520,7 @@ FEATURE_GROUPS = {
     "move_effects": move_effect_features,
     "alive_species": alive_species_features,
     "roles": roles_features,
+    "team_ids": team_id_features,
 }
 
 

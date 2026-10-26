@@ -71,4 +71,13 @@ EXPERIMENTS = {
         "columns": "experiments/compact_columns.txt",
         "model": "lgb_xgb_blend",
     },
+
+    # Team records: the final features plus each team's past results.
+    # Teams recur across battles; TeamRecordModel computes the records
+    # inside each training fold.
+    "team_blend": {
+        "features": ["starter", "state_t30", "sacrifice",
+                     "move_usage", "move_effects", "alive_species", "team_ids"],
+        "model": "team_lgb_xgb_blend",
+    },
 }

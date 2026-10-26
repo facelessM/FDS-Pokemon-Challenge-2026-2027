@@ -469,3 +469,28 @@ below 30% HP takes an attack:
   95% of battles.
 - **Decision:** the same accuracy with less than half the columns. We keep it as our
   second final submission.
+
+---
+
+## Team records
+
+- **Branch:** `team-records`. `python analysis/team_checks.py` for the numbers below,
+  `python run.py --exp team_blend` for the model and its submission.
+- **What we found in the data:** teams recur. The 10,000 training battles use 4,167
+  distinct P1 teams, 68.7% of battles have a P1 team that plays more than once, and
+  69.5% of the test battles use a P1 team seen in training. Among the 38 teams with 30
+  or more battles, P1's win rate goes from 37% to 85%. A team most likely stands for a
+  player as well, so its record carries the skill that 30 turns cannot show.
+- **P2's team:** the P2 Pokémon seen in 30 turns fit a known team in 74.7% of battles,
+  a single team in 46.8%.
+- **What we built:** feature group `team_ids` gives each battle P1's team and P2's
+  matched team (the most common known team containing every P2 Pokémon seen).
+  `TeamRecordModel` turns them into records inside each training fold: a team's
+  smoothed win rate (worth 10 battles at 50% before its own results count), counting
+  a battle for P1's team with its outcome and for a uniquely matched P2 team with the
+  opposite one. The training rows get their records from an inner 5-fold split, so no
+  battle ever sees its own result.
+- **Result:** CV 0.6933 ± 0.0072 on the usual folds (final blend 0.6875). On seeds 6 to
+  10, **0.6901 ± 0.0009** against 0.6841 ± 0.0017, better on all five.
+- **Decision:** keep. This is the first gain since the final model that comes from
+  information outside the 30 turns: who is playing.
