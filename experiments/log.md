@@ -444,3 +444,25 @@ below 30% HP takes an attack:
   and the model gets 55.8% of them right, against 88.1% for the 21% it is most sure
   about. These battles are most likely decided by what we cannot see: P2's unrevealed
   Pokémon and moves, and the turns after 30.
+
+---
+
+## Compact model
+
+- **Branch:** `compact-model`. `python analysis/compact_selection.py` chooses the
+  columns, `python run.py --exp compact_blend` scores the model and writes its
+  submission.
+- **Idea:** the final model has 404 columns, most of them sparse move counts. Gen 2 OU
+  is played around a few roles, so we count, for each side, the Pokémon that used
+  Spikes, Rapid Spin and Explosion (feature group `roles`), and then keep only the
+  columns the model actually relies on.
+- **Selection:** LightGBM fitted on 80% of the training battles; on the other 20% each
+  column is shuffled in turn (permutation importance, 5 repeats). Columns whose
+  shuffling makes the predictions worse are kept: 176 of 413, of which 76 of the 205
+  move columns, 48 of the 120 species columns and 5 of the 9 role columns.
+- **Result:** CV seeds 6 to 10 **0.6842 ± 0.0016**, against 0.6841 ± 0.0017 for the
+  final model. On the usual folds 0.6885 ± 0.0063, slightly optimistic since the
+  selection saw the same battles. Its test predictions agree with our submitted file on
+  95% of battles.
+- **Decision:** the same accuracy with less than half the columns. We keep it as our
+  second final submission.
