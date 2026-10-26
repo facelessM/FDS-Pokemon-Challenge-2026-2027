@@ -12,7 +12,7 @@ inside the battle itself (plus the supplied type chart). No outside
 tables, no usage stats, nothing typed in by hand about specific Pokemon.
 """
 
-from collections import Counter
+from collections import Counter, defaultdict
 
 import numpy as np
 import pandas as pd
@@ -453,6 +453,39 @@ def alive_species_features(battle, context):
 
 
 # ---------------------------------------------------------------------------
+# Compact model: three Gen 2 roles instead of the full move list
+# ---------------------------------------------------------------------------
+
+SPIKES = {"spikes"}
+SPIN = {"rapidspin"}
+BOOM = {"explosion", "selfdestruct"}
+
+
+def roles_features(battle):
+    """How many Pokemon on each side showed three key Gen 2 roles.
+
+    Spikes stays on the field until Rapid Spin removes it, and Explosion
+    trades one Pokemon for another. Counting the Pokemon that used these
+    moves is a short summary of what the full move list says about a team.
+    """
+    feats = {}
+    for side in ("p1", "p2"):
+        used = defaultdict(set)
+        for turn in battle["battle_timeline"]:
+            move = turn[f"{side}_move_details"]
+            if move:
+                used[turn[f"{side}_pokemon_state"]["name"]].add(move["name"])
+        states = last_seen_states(battle, side)
+        feats[f"{side}_spikes_users"] = sum(1 for m in used.values() if m & SPIKES)
+        feats[f"{side}_spin_users"] = sum(1 for m in used.values() if m & SPIN)
+        feats[f"{side}_boom_users"] = sum(1 for m in used.values() if m & BOOM)
+        feats[f"{side}_spin_alive"] = sum(1 for n, m in used.items()
+                                          if m & SPIN and states[n]["status"] != "fnt")
+    feats["diff_spin_alive"] = feats["p1_spin_alive"] - feats["p2_spin_alive"]
+    return feats
+
+
+# ---------------------------------------------------------------------------
 # Registry: name used in experiment configs -> function
 # ---------------------------------------------------------------------------
 
@@ -465,6 +498,7 @@ FEATURE_GROUPS = {
     "move_usage": move_usage_features,
     "move_effects": move_effect_features,
     "alive_species": alive_species_features,
+    "roles": roles_features,
 }
 
 
