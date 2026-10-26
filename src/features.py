@@ -415,10 +415,10 @@ def move_effect_features(battle):
             asleep += mine["status"] == "slp"
             paralysed += mine["status"] == "par"
 
-        damage = np.array(damage) if damage else np.array([0.0])
-        feats[f"{me}_dmg_mean"] = damage.mean()
+        damage = np.asarray(damage, dtype=float)
+        feats[f"{me}_dmg_mean"] = damage.mean() if damage.size else 0.0
         feats[f"{me}_dmg_total"] = damage.clip(min=0).sum()
-        feats[f"{me}_dmg_max"] = damage.max()
+        feats[f"{me}_dmg_max"] = damage.max() if damage.size else 0.0
         feats[f"{me}_n_hits"] = len(damage)
         feats[f"{me}_no_effect_hits"] = no_effect
         feats[f"{me}_heal_total"] = healed
@@ -500,6 +500,7 @@ def team_id_features(battle, context):
     index = context["teams"]
     key = tuple(sorted(p["name"] for p in battle["p1_team_details"]))
     seen = {turn["p2_pokemon_state"]["name"] for turn in battle["battle_timeline"]}
+    seen.add(battle["p2_lead_details"]["name"])
     candidates = set.intersection(*(index["by_species"].get(n, set()) for n in seen))
     # Ties are broken by the lowest id, so the match does not depend on set order.
     p2 = min(candidates, key=lambda i: (-index["count"][i], i)) if candidates else -1
@@ -541,7 +542,9 @@ def win_condition_features(battle, context):
     p2_team = team_id_features(battle, context)["p2_team_id"]
     if p2_team >= 0:
         for name in teams["keys"][p2_team]:
-            alive["p2"].setdefault(name, 1.0)
+            # Known fainted Pokemon must not become inferred healthy reserves.
+            if name not in states["p2"]:
+                alive["p2"][name] = 1.0
 
     feats = {}
     for me, op in (("p1", "p2"), ("p2", "p1")):
@@ -611,3 +614,4 @@ def build_features(battles, groups, context=None):
 def get_target(battles):
     """Pull player_won out of the training battles as a 0/1 numpy array."""
     return np.array([int(b["player_won"]) for b in battles])
+
