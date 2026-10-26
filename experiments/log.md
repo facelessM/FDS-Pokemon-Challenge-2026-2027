@@ -249,18 +249,16 @@ data. Before adding more features we change how we pick them.
 
   None passes our threshold. The richer state we had planned for the next step would
   not have helped, which is exactly what this analysis was for.
-- **How the dataset was built.** P1's win rate by the number of fainted Pokémon on each
-  side at turn 30 shows a clear pattern. In none of the 10,000 battles has P2 lost more
-  than one Pokémon more than P1, and when P2 has lost exactly one more, P1 wins every
-  time. P1 also loses 1.9 Pokémon on average against 0.5 for P2, yet wins half of the
-  battles. So P1 is, almost always, the side that is level or behind at turn 30. The
-  task is less "who is ahead?" and more "will the side that is behind come back?", which
-  is what the slides hint at with "the underdogs can win". It explains why the obvious
-  signal only takes us to about 67%.
-- **Can we trust the faint counts?** Two checks. Every use of Explosion or Self-Destruct
-  (3,877 by P1, 2,309 by P2) is marked as fainted. And low-HP Pokémon that left the field
-  and never came back, which is what an unrecorded knockout would look like, do not
-  explain the residual (|r| <= 0.028). The counts are reliable.
+- **Faint counts at turn 30.** In none of the 10,000 battles has P2 lost more than one
+  Pokémon more than P1, and P1 loses 1.9 Pokémon on average against 0.5 for P2, yet
+  wins half of the battles. We first read this as "P1 is almost always behind, the task
+  is predicting comebacks". That reading was wrong: P2's knockouts are mostly not
+  recorded as faints (see *Data check: hidden knockouts* below). Both sides actually
+  lose about the same number of Pokémon.
+- **Can we trust the faint counts?** Every use of Explosion or Self-Destruct is marked
+  as fainted, and the low-HP Pokémon that leave and never come back do not explain the
+  residual (|r| <= 0.028). This only shows the model does not miss them, not that the
+  counts are complete.
 - **One thing the checks did show:** P1 uses Explosion and Self-Destruct far more than
   P2. Part of P1's extra faints are sacrifices, not knockouts taken, and E01 counts both
   the same way. That is a fix to the turn-30 state with a clear reason behind it, so it
@@ -328,8 +326,8 @@ data. Before adding more features we change how we pick them.
   0.17 points of each other, well inside the noise. k-NN is clearly behind: with 45
   features of very different importance, a plain distance gives too much weight to the
   ones that do not matter. That the untuned tree models do not beat a linear model fits
-  what we saw so far: the signal is mostly "how far behind is P1", and that is close to
-  linear.
+  what we saw so far: the signal is mostly the difference in Pokémon and HP left at turn
+  30, and that is close to linear.
 - **Do the models make the same mistakes?** (`analysis/e06_checks.py`) The three main
   models' predicted probabilities correlate at 0.88 to 0.91, and they disagree on only 12
   to 15% of battles. Where they disagree, each one is right about half the time. 23% of
@@ -382,3 +380,42 @@ data. Before adding more features we change how we pick them.
   ahead on four of five and varies less, which is why we keep it.
 - A random search over 20 LightGBM settings did not beat ours (best 0.6843, median
   0.6804). The mild settings (small trees, slow learning rate, subsampling) are enough.
+
+---
+
+## Gen 2 mechanics, shown directly
+
+`analysis/mechanics_tables.py`. Writing the mechanics as explicit features (Spikes that
+cannot be cleared, Explosion trade quality, setup threats left unanswered, how well
+attacks matched their targets) did not change the CV score: the final model already
+picks them up through HP, move usage and move effects. On their own they are strong:
+
+- Spikes stuck on P1's side at turn 30: P1 wins 40.5%. Stuck on P2's side: 58.8%.
+- P1's win rate rises from 42.2% to 56.4% across quintiles of attack effectiveness
+  (P1 minus P2).
+- The final model is least accurate in long, stall-heavy battles: 71.9% with no Rest
+  user, 59.4% with four or more. Those battles are decided in turns we cannot see.
+
+---
+
+## Data check: hidden knockouts
+
+`analysis/data_checks.py`. We looked at what the timeline shows right after a Pokémon
+below 30% HP takes an attack:
+
+| Side | Fainted | Gone, never seen again | Fainted + never seen again |
+|---|---|---|---|
+| P1 | 39.8% | 16.1% | 5,572 |
+| P2 | 3.0% | 50.4% | 5,745 |
+
+- When P1 knocks out a P2 Pokémon with an attack, the timeline usually does not mark it
+  as fainted: it leaves the field and never comes back. 98% of the recorded P2 faints
+  happen on the same row as a P1 faint, i.e. Explosion and Self-Destruct trades.
+- Counted together, both sides lose about the same number of Pokémon. The E04 reading
+  ("P1 is almost always behind") was an effect of this recording, not of the game.
+- Adding the hidden knockouts (0.54 per battle) to the final features does not change
+  the score (LightGBM, seeds 1 to 5: 0.6818 against 0.6827). The missing faints were
+  Pokémon with little HP left, and the model already sees how many P2 Pokémon appeared
+  and how much damage each side dealt.
+- HP drops line up with the attack on the same row for both sides, so the damage
+  features are measured correctly.
