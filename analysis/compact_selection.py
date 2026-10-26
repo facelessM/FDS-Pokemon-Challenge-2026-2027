@@ -8,6 +8,7 @@ How the columns of the compact model were chosen, and what it scores.
      column is kept if shuffling it makes the predictions worse on average.
      The list is written to experiments/compact_columns.txt.
   3. Compare the compact model with the final model on CV seeds 6 to 10.
+     Prints how many columns of each kind are kept and the ten most important.
 
     python analysis/compact_selection.py
 """
@@ -52,6 +53,8 @@ def main():
 
     role_cols = list(roles_features(train[0]))
     print(f"Kept {len(keep)} of {X.shape[1]} columns")
+    top = sorted(zip(imp.importances_mean, X.columns), reverse=True)[:10]
+    print("  most important: " + ", ".join(c for _, c in top))
     for name, test in [("move usage", lambda c: "_mv_" in c),
                        ("species still standing", lambda c: "_alive_" in c),
                        ("roles", lambda c: c in role_cols)]:
