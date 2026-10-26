@@ -1,6 +1,7 @@
 """
 Model choices behind the final submission, on the usual folds (seed 42).
 
+  0. LightGBM on the E05 features, as a reference.
   1. The final features with each model on its own: logistic regression,
      untuned gradient boosting, LightGBM, XGBoost, and the blend of the
      last two.
@@ -39,6 +40,12 @@ def main():
         "top_species": build_top_species(train),
     }
     X = build_features(train, EXPERIMENTS["final_blend"]["features"], context).drop(columns="battle_id")
+
+    # Same LightGBM on the E05 features, so the gain from the new feature
+    # groups can be told apart from the gain from changing the model.
+    X05 = build_features(train, EXPERIMENTS["e05_sacrifice"]["features"], context).drop(columns="battle_id")
+    r = cross_validate("lgbm_final", X05, y)
+    print(f"0. LightGBM on the E05 features ({X05.shape[1]} columns): {r['mean']:.4f} +/- {r['std']:.4f}\n")
 
     print(f"1. Final features ({X.shape[1]} columns), one model at a time")
     for name in ["logreg_scaled", "gb_default", "lgbm_final", "xgb_final", "lgb_xgb_blend"]:

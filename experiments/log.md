@@ -366,12 +366,15 @@ data. Before adding more features we change how we pick them.
 
 | Final features, model | CV seed 42 | CV seeds 6-10 |
 |---|---|---|
+| *LightGBM on E05 features (reference)* | *0.6724 ± 0.0043* | |
 | Logistic regression | 0.6713 ± 0.0136 | |
 | Gradient boosting, untuned | 0.6739 ± 0.0063 | |
 | LightGBM | 0.6878 ± 0.0044 | 0.6820 ± 0.0025 |
 | XGBoost | 0.6851 ± 0.0047 | |
 | LightGBM + XGBoost | 0.6875 ± 0.0058 | **0.6841 ± 0.0017** |
 
+- With the model fixed, the new feature groups add 1.5 points (LightGBM: 0.6724 on E05
+  features, 0.6878 on the final ones), so the gain comes from the features.
 - Logistic regression gets nothing out of the 359 new columns (0.6713, the E05 level,
   with twice the fold spread): the move counts are wide and sparse, and their effect
   depends on the battle state, which a linear model cannot combine.
