@@ -501,62 +501,9 @@ def team_id_features(battle, context):
     key = tuple(sorted(p["name"] for p in battle["p1_team_details"]))
     seen = {turn["p2_pokemon_state"]["name"] for turn in battle["battle_timeline"]}
     candidates = set.intersection(*(index["by_species"].get(n, set()) for n in seen))
-    # Ties are broken by the lowest id, so the match does not depend on set order.
-    p2 = min(candidates, key=lambda i: (-index["count"][i], i)) if candidates else -1
+    p2 = max(candidates, key=lambda i: index["count"][i]) if candidates else -1
     return {"p1_team_id": index["ids"].get(key, -1), "p2_team_id": p2,
             "p2_team_candidates": len(candidates)}
-
-
-# ---------------------------------------------------------------------------
-# Win conditions: does a side still have a Pokemon the other cannot stop?
-# ---------------------------------------------------------------------------
-
-CHART_SMOOTHING = 10   # pairs seen for few turns are pulled towards an even matchup
-
-
-def matchup(chart, a, b):
-    """Average HP edge of species a over species b per turn, from the learned chart."""
-    pair = (a, b)
-    return chart["edge"].get(pair, 0.0) / (chart["turns"].get(pair, 0) + CHART_SMOOTHING)
-
-
-def win_condition_features(battle, context):
-    """For each Pokemon a side still has, its worst matchup against everything
-    the opponent has left. If even the worst one is in its favour, nothing on
-    the other side can stop it: that is a win condition.
-
-    P2's remaining Pokemon are the ones seen and not fainted, plus the members
-    of its matched team (see team_id_features) that have not appeared yet.
-    """
-    chart, teams = context["matchups"], context["teams"]
-    states = {side: last_seen_states(battle, side) for side in ("p1", "p2")}
-    alive = {"p1": {}, "p2": {}}
-    for p in battle["p1_team_details"]:
-        st = states["p1"].get(p["name"])
-        if st is None or st["status"] != "fnt":
-            alive["p1"][p["name"]] = st["hp_pct"] if st else 1.0
-    for name, st in states["p2"].items():
-        if st["status"] != "fnt":
-            alive["p2"][name] = st["hp_pct"]
-    p2_team = team_id_features(battle, context)["p2_team_id"]
-    if p2_team >= 0:
-        for name in teams["keys"][p2_team]:
-            alive["p2"].setdefault(name, 1.0)
-
-    feats = {}
-    for me, op in (("p1", "p2"), ("p2", "p1")):
-        mine, theirs = alive[me], alive[op]
-        worst = {a: min([matchup(chart, a, b) for b in theirs] or [0.0]) for a in mine}
-        feats[f"{me}_unanswered"] = sum(1 for v in worst.values() if v > 0)
-        feats[f"{me}_wincon_best"] = max(worst.values()) if worst else -1.0
-        feats[f"{me}_wincon_hp"] = max([worst[a] * mine[a] for a in mine] or [-1.0])
-        pairs = [matchup(chart, a, b) for a in mine for b in theirs]
-        feats[f"{me}_matchup_mean"] = float(np.mean(pairs)) if pairs else 0.0
-    feats["diff_unanswered"] = feats["p1_unanswered"] - feats["p2_unanswered"]
-    feats["diff_wincon_best"] = feats["p1_wincon_best"] - feats["p2_wincon_best"]
-    last = battle["battle_timeline"][-1]
-    feats["active_matchup"] = matchup(chart, last["p1_pokemon_state"]["name"], last["p2_pokemon_state"]["name"])
-    return feats
 
 
 # ---------------------------------------------------------------------------
@@ -574,7 +521,6 @@ FEATURE_GROUPS = {
     "alive_species": alive_species_features,
     "roles": roles_features,
     "team_ids": team_id_features,
-    "win_conditions": win_condition_features,
 }
 
 

@@ -128,33 +128,7 @@ def build_team_index(battles):
     for key, i in ids.items():
         for name in key:
             by_species.setdefault(name, set()).add(i)
-    return {"ids": ids, "keys": sorted(counts), "count": {ids[k]: c for k, c in counts.items()},
-            "by_species": by_species}
-
-
-def build_matchup_chart(battles):
-    """How each species fares against each other species, from the HP exchanges.
-
-    Whenever the same two Pokemon stay on the field for two turns in a row, we
-    record how much HP each lost in that turn. For a pair (a, b), "edge" is the
-    total HP b lost minus the HP a lost over all such turns, and "turns" the
-    number of turns. It is built from the training timelines only and uses no
-    outcomes. Unlike the type chart it reflects moves, items and stats as they
-    were actually used.
-    """
-    edge, turns = {}, {}
-    for battle in battles:
-        tl = battle["battle_timeline"]
-        for prev, cur in zip(tl, tl[1:]):
-            a0, b0 = prev["p1_pokemon_state"], prev["p2_pokemon_state"]
-            a1, b1 = cur["p1_pokemon_state"], cur["p2_pokemon_state"]
-            if a0["name"] != a1["name"] or b0["name"] != b1["name"]:
-                continue
-            e = (b0["hp_pct"] - b1["hp_pct"]) - (a0["hp_pct"] - a1["hp_pct"])
-            for pair, sign in (((a0["name"], b0["name"]), 1), ((b0["name"], a0["name"]), -1)):
-                edge[pair] = edge.get(pair, 0.0) + sign * e
-                turns[pair] = turns.get(pair, 0) + 1
-    return {"edge": edge, "turns": turns}
+    return {"ids": ids, "count": {ids[k]: c for k, c in counts.items()}, "by_species": by_species}
 
 
 def load_type_chart(data_dir):

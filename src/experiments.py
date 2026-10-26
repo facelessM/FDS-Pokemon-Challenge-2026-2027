@@ -80,13 +80,4 @@ EXPERIMENTS = {
                      "move_usage", "move_effects", "alive_species", "team_ids"],
         "model": "team_lgb_xgb_blend",
     },
-
-    # Win conditions: team records plus, for each side, the Pokemon that the
-    # other side's remaining team cannot stop, from a matchup chart learned
-    # from the HP exchanges in the training battles.
-    "wincon_blend": {
-        "features": ["starter", "state_t30", "sacrifice", "move_usage",
-                     "move_effects", "alive_species", "team_ids", "win_conditions"],
-        "model": "team_lgb_xgb_blend",
-    },
 }

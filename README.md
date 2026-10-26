@@ -31,13 +31,11 @@ Each row links to the commit that produced it and is explained in
 | E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) | |
 | **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
 | Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 | 0.6893 |
-| Team | Final + each team's past record, computed inside each fold | 0.6947 ± 0.0057 | 0.6907 |
-| **Win conditions** | Team + unanswered Pokémon from a matchup chart learned from the battles | **0.6939 ± 0.0087** | |
+| **Team** | Final + each team's past record, computed inside each fold | **0.6933 ± 0.0072** | **0.6907** |
 
 The final model scores 0.6841 ± 0.0017 on CV seeds never used during development
-(`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) the team model
-0.6901 ± 0.0018 (`analysis/team_checks.py`) and the win-condition model 0.6929 ± 0.0011
-(`analysis/wincon_checks.py`).
+(`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) and the team model
+0.6901 ± 0.0009 (`analysis/team_checks.py`).
 
 ## Repository layout
 
