@@ -339,3 +339,17 @@ data. Before adding more features we change how we pick them.
   and stays the main model. Gradient boosting has the most to gain from tuning, since its
   defaults are generic. Random forest behaves almost like gradient boosting (correlation
   0.91) at eight times the cost, and k-NN is clearly behind, so both are dropped.
+
+---
+
+## Final model
+
+- **Commit:** `072e8dc` (branch `final-model`), `python run.py --exp final_blend`
+- **Features (404):** E05 plus three groups. *Move usage*: how often each side used
+  each move. *Move effects*: damage per attack, attacks with no effect, HP healed,
+  turns lost to status. *Species still standing*: for the 60 most common species,
+  whether each side still has it at turn 30.
+- **Model:** LightGBM + XGBoost, win probabilities averaged. These features are wide
+  and sparse, which suits trees; logistic regression did worse on them.
+- **Result:** CV 0.6875 ± 0.0058. Public leaderboard **0.6893**. The code reproduces
+  the submitted file exactly (5,000 of 5,000 predictions).

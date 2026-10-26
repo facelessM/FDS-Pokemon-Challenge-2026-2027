@@ -16,8 +16,7 @@ Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last betwee
 
 ## Results so far
 
-Accuracy from stratified 5-fold cross validation on the 10,000 training battles,
-with the main model (scaled logistic regression).
+Accuracy from stratified 5-fold cross validation on the 10,000 training battles.
 Each row links to the commit that produced it and is explained in
 [`experiments/log.md`](experiments/log.md).
 
@@ -29,6 +28,7 @@ Each row links to the commit that produced it and is explained in
 | E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 | |
 | E04 | Error analysis of E01: no new features, plan shortened | | |
 | E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
+| **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
 
 ## Repository layout
 
