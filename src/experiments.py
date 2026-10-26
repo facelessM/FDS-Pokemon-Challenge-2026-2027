@@ -51,4 +51,14 @@ EXPERIMENTS = {
         "features": ["starter", "state_t30", "sacrifice"],
         "model": "logreg_scaled",
     },
+
+    # Final model: E05 plus what each side did (move usage and the realised
+    # effect of the moves) and which common species are still standing, with
+    # a LightGBM + XGBoost blend. This is the model behind our best public
+    # score (0.6893).
+    "final_blend": {
+        "features": ["starter", "state_t30", "sacrifice",
+                     "move_usage", "move_effects", "alive_species"],
+        "model": "lgb_xgb_blend",
+    },
 }

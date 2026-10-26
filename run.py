@@ -19,13 +19,15 @@ import argparse
 import csv
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 
-from src.data import (build_species_table, find_data_dir, load_battles,
-                      load_sample_submission, load_type_chart)
+from src.data import (build_move_vocab, build_species_table, build_top_species,
+                      find_data_dir, load_battles, load_sample_submission,
+                      load_type_chart)
 from src.experiments import EXPERIMENTS
 from src.features import build_features, get_target
 from src.models import get_model
@@ -117,6 +119,8 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     context = {
         "type_chart": load_type_chart(data_dir),
         "species": build_species_table(train),
+        "move_vocab": build_move_vocab(train),
+        "top_species": build_top_species(train),
     }
 
     # 2. Features. We build train and test with the same function and
@@ -131,10 +135,11 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     X_test = test_df[feature_cols]
     print(f"Experiment {exp_name}: {len(feature_cols)} features, model={config['model']}")
 
-    # 3. Cross validation
+    # 3. Cross validation (timed, since run time matters when comparing models)
+    start = time.time()
     cv = cross_validate(config["model"], X_train, y_train)
     folds = ", ".join(f"{s:.4f}" for s in cv["fold_scores"])
-    print(f"CV accuracy: {cv['mean']:.4f} +/- {cv['std']:.4f}  (folds: {folds})")
+    print(f"CV accuracy: {cv['mean']:.4f} +/- {cv['std']:.4f}  (folds: {folds})  [{time.time() - start:.0f}s]")
 
     # 4. Record it
     if log:

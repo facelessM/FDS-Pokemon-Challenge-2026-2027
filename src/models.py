@@ -8,8 +8,10 @@ and returns a fresh, untrained estimator. We build a new one for every
 fold so nothing leaks between folds.
 """
 
-from sklearn.ensemble import HistGradientBoostingClassifier
+import numpy as np
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -42,10 +44,69 @@ def gb_default(seed):
     return HistGradientBoostingClassifier(random_state=seed)
 
 
+def knn_scaled(seed):
+    """k-nearest neighbours: a battle is predicted like the most similar ones.
+
+    Distances only make sense on scaled inputs. k = 89 is the usual
+    square-root rule for the 8,000 battles in a training fold. The seed is
+    not used (k-NN has no randomness) but we keep the same signature.
+    """
+    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=89))
+
+
+def random_forest(seed):
+    """Random forest with default settings, apart from the number of trees.
+
+    300 trees instead of the default 100, so the result does not depend
+    much on the random draw. Trees do not need scaled inputs.
+    """
+    return RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
+
+
+class LgbXgbBlend:
+    """LightGBM and XGBoost trained side by side, win probabilities averaged.
+
+    Both are gradient boosted trees with mild settings (small trees, a slow
+    learning rate, row and column subsampling). Tuning them further did not
+    help, and averaging the two was slightly better than either alone.
+    Their seeds are fixed at 0, the values behind our submitted file.
+    """
+
+    def __init__(self):
+        import lightgbm as lgb
+        import xgboost as xgb
+
+        self.models = [
+            lgb.LGBMClassifier(n_estimators=500, learning_rate=0.03, num_leaves=15,
+                               min_child_samples=40, subsample=0.8, subsample_freq=1,
+                               colsample_bytree=0.5, reg_lambda=1.0, random_state=0,
+                               n_jobs=2, verbose=-1),
+            xgb.XGBClassifier(n_estimators=500, learning_rate=0.03, max_depth=4,
+                              min_child_weight=5, subsample=0.8, colsample_bytree=0.5,
+                              reg_lambda=1.0, random_state=0, n_jobs=2, verbosity=0),
+        ]
+
+    def fit(self, X, y):
+        for m in self.models:
+            m.fit(X, y)
+        return self
+
+    def predict_proba(self, X):
+        return np.mean([m.predict_proba(X) for m in self.models], axis=0)
+
+
+def lgb_xgb_blend(seed):
+    """The final model. The seed argument is unused (see LgbXgbBlend)."""
+    return LgbXgbBlend()
+
+
 MODELS = {
     "logreg_starter": logreg_starter,
     "logreg_scaled": logreg_scaled,
     "gb_default": gb_default,
+    "knn_scaled": knn_scaled,
+    "random_forest": random_forest,
+    "lgb_xgb_blend": lgb_xgb_blend,
 }
 
 

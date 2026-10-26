@@ -298,3 +298,62 @@ data. Before adding more features we change how we pick them.
 - **Decision:** keep `sacrifice`. The gain is above our threshold for the main model and
   has a clear reason behind it. The E05 feature set (starter + state_t30 + sacrifice) is
   the base for the model comparison in E06.
+
+---
+
+## E06: model comparison
+
+- **Commit:** `53b5bc0` (branch `e06-model-comparison`)
+- **Question:** with the feature set fixed at E05, which classical model family works
+  best? Each one rests on a different assumption about the data, and all of them run
+  with standard settings so the comparison is fair. Tuning comes in E08.
+- **Models:**
+  - logistic regression on standardised inputs: the effects are linear
+  - k-nearest neighbours (k = 89, the square root of a training fold): similar battles
+    end the same way
+  - random forest (300 trees): interactions matter, and averaging many deep trees
+    keeps the variance down
+  - gradient boosting (scikit-learn defaults): interactions matter, and each tree fixes
+    the errors of the previous ones
+- **Result** (same folds, `python run.py --exp e05_sacrifice --model <name>`):
+
+  | Model | CV accuracy | CV time |
+  |---|---|---|
+  | Logistic regression | **0.6712 ± 0.0061** | < 1 s |
+  | Random forest | 0.6695 ± 0.0040 | 8 s |
+  | Gradient boosting | 0.6695 ± 0.0038 | 1 s |
+  | k-NN | 0.6426 ± 0.0102 | < 1 s |
+
+- **Reading it:** logistic regression, random forest and gradient boosting are within
+  0.17 points of each other, well inside the noise. k-NN is clearly behind: with 45
+  features of very different importance, a plain distance gives too much weight to the
+  ones that do not matter. That the untuned tree models do not beat a linear model fits
+  what we saw so far: the signal is mostly "how far behind is P1", and that is close to
+  linear.
+- **Do the models make the same mistakes?** (`analysis/e06_checks.py`) The three main
+  models' predicted probabilities correlate at 0.88 to 0.91, and they disagree on only 12
+  to 15% of battles. Where they disagree, each one is right about half the time. 23% of
+  battles are missed by all three. So combining them (E09) can only bring a small gain,
+  and we should not expect more.
+- **Decision:** carry two models forward. Logistic regression is the best and simplest,
+  and stays the main model. Gradient boosting has the most to gain from tuning, since its
+  defaults are generic. Random forest behaves almost like gradient boosting (correlation
+  0.91) at eight times the cost, and k-NN is clearly behind, so both are dropped.
+
+---
+
+## Final model
+
+- **Commit:** `072e8dc` (branch `final-model`), `python run.py --exp final_blend`
+- **Features (404):** E05 plus three groups. *Move usage*: how often each side used
+  each move. *Move effects*: damage per attack, attacks with no effect, HP healed,
+  turns lost to status. *Species still standing*: for the 60 most common species,
+  whether each side still has it at turn 30.
+- **Model:** LightGBM + XGBoost, win probabilities averaged. These features are wide
+  and sparse, which suits trees; logistic regression did worse on them.
+- **Result:** CV 0.6875 ± 0.0058. Public leaderboard **0.6893**. The code reproduces
+  the submitted file exactly (5,000 of 5,000 predictions).
+- **Honest estimate:** seed 42 was also used while developing these features, so 0.6875
+  is slightly optimistic. On CV seeds 6 to 10, never used during development
+  (`analysis/final_checks.py`), the final model scores **0.6841 ± 0.0017** against
+  0.6690 for E05: a gain of 1.5 points, on every seed.
