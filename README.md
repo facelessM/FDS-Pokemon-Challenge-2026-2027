@@ -30,7 +30,7 @@ Each row links to the commit that produced it and is explained in
 | E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
 | E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) | |
 | **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
-| Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 | |
+| Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 | 0.6893 |
 
 The final model scores 0.6841 ± 0.0017 on CV seeds never used during development
 (`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`).
