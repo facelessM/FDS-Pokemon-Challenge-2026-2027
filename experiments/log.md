@@ -459,7 +459,10 @@ below 30% HP takes an attack:
 - **Selection:** LightGBM fitted on 80% of the training battles; on the other 20% each
   column is shuffled in turn (permutation importance, 5 repeats). Columns whose
   shuffling makes the predictions worse are kept: 176 of 413, of which 76 of the 205
-  move columns, 48 of the 120 species columns and 5 of the 9 role columns.
+  move columns, 48 of the 120 species columns and 5 of the 9 role columns. The HP
+  difference at turn 30 matters far more than any other column (about five times the
+  next one), followed by P2's remaining HP, the difference in statused Pokémon, Spikes
+  used by each side, damage per hit, P1 still having Snorlax and P2's active boosts.
 - **Result:** CV seeds 6 to 10 **0.6842 ± 0.0016**, against 0.6841 ± 0.0017 for the
   final model. On the usual folds 0.6885 ± 0.0063, slightly optimistic since the
   selection saw the same battles. Its test predictions agree with our submitted file on
