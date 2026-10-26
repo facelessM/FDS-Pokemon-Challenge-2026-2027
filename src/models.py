@@ -63,28 +63,33 @@ def random_forest(seed):
     return RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
 
 
+def lgbm_final(seed=0):
+    """LightGBM half of the final blend: small trees (15 leaves), a slow
+    learning rate, row and column subsampling. Seed fixed at 0."""
+    import lightgbm as lgb
+    return lgb.LGBMClassifier(n_estimators=500, learning_rate=0.03, num_leaves=15,
+                              min_child_samples=40, subsample=0.8, subsample_freq=1,
+                              colsample_bytree=0.5, reg_lambda=1.0, random_state=0,
+                              n_jobs=2, verbose=-1)
+
+
+def xgb_final(seed=0):
+    """XGBoost half of the final blend, with matching mild settings
+    (depth 4). Seed fixed at 0."""
+    import xgboost as xgb
+    return xgb.XGBClassifier(n_estimators=500, learning_rate=0.03, max_depth=4,
+                             min_child_weight=5, subsample=0.8, colsample_bytree=0.5,
+                             reg_lambda=1.0, random_state=0, n_jobs=2, verbosity=0)
+
+
 class LgbXgbBlend:
     """LightGBM and XGBoost trained side by side, win probabilities averaged.
 
-    Both are gradient boosted trees with mild settings (small trees, a slow
-    learning rate, row and column subsampling). Tuning them further did not
-    help, and averaging the two was slightly better than either alone.
-    Their seeds are fixed at 0, the values behind our submitted file.
+    Both seeds are fixed at 0, the values behind our submitted file.
     """
 
     def __init__(self):
-        import lightgbm as lgb
-        import xgboost as xgb
-
-        self.models = [
-            lgb.LGBMClassifier(n_estimators=500, learning_rate=0.03, num_leaves=15,
-                               min_child_samples=40, subsample=0.8, subsample_freq=1,
-                               colsample_bytree=0.5, reg_lambda=1.0, random_state=0,
-                               n_jobs=2, verbose=-1),
-            xgb.XGBClassifier(n_estimators=500, learning_rate=0.03, max_depth=4,
-                              min_child_weight=5, subsample=0.8, colsample_bytree=0.5,
-                              reg_lambda=1.0, random_state=0, n_jobs=2, verbosity=0),
-        ]
+        self.models = [lgbm_final(), xgb_final()]
 
     def fit(self, X, y):
         for m in self.models:
@@ -107,6 +112,8 @@ MODELS = {
     "knn_scaled": knn_scaled,
     "random_forest": random_forest,
     "lgb_xgb_blend": lgb_xgb_blend,
+    "lgbm_final": lgbm_final,
+    "xgb_final": xgb_final,
 }
 
 
