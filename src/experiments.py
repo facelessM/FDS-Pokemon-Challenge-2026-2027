@@ -61,4 +61,14 @@ EXPERIMENTS = {
                      "move_usage", "move_effects", "alive_species"],
         "model": "lgb_xgb_blend",
     },
+
+    # Compact model: the final groups plus three Gen 2 roles (Spikes, Rapid
+    # Spin, Explosion), then only the columns that the selection in
+    # analysis/compact_selection.py found useful. Same blend as the final.
+    "compact_blend": {
+        "features": ["starter", "state_t30", "sacrifice",
+                     "move_usage", "move_effects", "alive_species", "roles"],
+        "columns": "experiments/compact_columns.txt",
+        "model": "lgb_xgb_blend",
+    },
 }

@@ -129,6 +129,10 @@ def run_experiment(exp_name, data_dir=None, out_dir=None, log=True, model=None):
     train_df = build_features(train, config["features"], context)
     test_df = build_features(test, config["features"], context)
     feature_cols = [c for c in train_df.columns if c != "battle_id"]
+    # Some experiments keep only a chosen subset of the columns.
+    if "columns" in config:
+        keep = Path(__file__).resolve().parent.joinpath(config["columns"]).read_text().split()
+        feature_cols = [c for c in feature_cols if c in keep]
     test_df = test_df.reindex(columns=["battle_id"] + feature_cols, fill_value=0)
 
     X_train, y_train = train_df[feature_cols], get_target(train)
