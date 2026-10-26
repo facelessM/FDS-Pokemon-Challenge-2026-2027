@@ -28,6 +28,7 @@ Each row links to the commit that produced it and is explained in
 | E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 | |
 | E04 | Error analysis of E01: no new features, plan redesigned | | |
 | E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
+| E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) | |
 | **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
 
 The final model scores 0.6841 ± 0.0017 on CV seeds never used during development
