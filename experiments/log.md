@@ -353,3 +353,7 @@ data. Before adding more features we change how we pick them.
   and sparse, which suits trees; logistic regression did worse on them.
 - **Result:** CV 0.6875 ± 0.0058. Public leaderboard **0.6893**. The code reproduces
   the submitted file exactly (5,000 of 5,000 predictions).
+- **Honest estimate:** seed 42 was also used while developing these features, so 0.6875
+  is slightly optimistic. On CV seeds 6 to 10, never used during development
+  (`analysis/final_checks.py`), the final model scores **0.6841 ± 0.0017** against
+  0.6690 for E05: a gain of 1.5 points, on every seed.

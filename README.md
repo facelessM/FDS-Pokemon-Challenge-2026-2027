@@ -30,6 +30,9 @@ Each row links to the commit that produced it and is explained in
 | E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
 | **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
 
+The final model scores 0.6841 ± 0.0017 on CV seeds never used during development
+(`analysis/final_checks.py`).
+
 ## Repository layout
 
 ```
