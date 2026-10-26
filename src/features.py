@@ -501,7 +501,8 @@ def team_id_features(battle, context):
     key = tuple(sorted(p["name"] for p in battle["p1_team_details"]))
     seen = {turn["p2_pokemon_state"]["name"] for turn in battle["battle_timeline"]}
     candidates = set.intersection(*(index["by_species"].get(n, set()) for n in seen))
-    p2 = max(candidates, key=lambda i: index["count"][i]) if candidates else -1
+    # Ties are broken by the lowest id, so the match does not depend on set order.
+    p2 = min(candidates, key=lambda i: (-index["count"][i], i)) if candidates else -1
     return {"p1_team_id": index["ids"].get(key, -1), "p2_team_id": p2,
             "p2_team_candidates": len(candidates)}
 

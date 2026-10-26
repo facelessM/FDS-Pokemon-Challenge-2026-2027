@@ -490,7 +490,12 @@ below 30% HP takes an attack:
   a battle for P1's team with its outcome and for a uniquely matched P2 team with the
   opposite one. The training rows get their records from an inner 5-fold split, so no
   battle ever sees its own result.
-- **Result:** CV 0.6933 ± 0.0072 on the usual folds (final blend 0.6875). On seeds 6 to
-  10, **0.6901 ± 0.0009** against 0.6841 ± 0.0017, better on all five.
+- **Result:** CV 0.6947 ± 0.0057 on the usual folds (final blend 0.6875). On seeds 6 to
+  10, **0.6901 ± 0.0018** against 0.6841 ± 0.0017, better on all five.
+- **Fix:** when several known teams fit P2's Pokémon equally well, the first version took
+  whichever came first in a Python set, and that order can change between runs. Ties
+  now go to the lowest team id, so the result is the same on every run. The numbers
+  above are after the fix; the file submitted before it (public 0.6907) differs from the
+  fixed one on 2% of the test battles.
 - **Decision:** keep. This is the first gain since the final model that comes from
   information outside the 30 turns: who is playing.
