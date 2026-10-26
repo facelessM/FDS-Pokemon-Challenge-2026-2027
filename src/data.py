@@ -108,6 +108,29 @@ def build_top_species(battles, n=60):
     return [name for name, _ in counts.most_common(n)]
 
 
+def team_key(battle):
+    """A P1 team, written as its six species in alphabetical order."""
+    return tuple(sorted(p["name"] for p in battle["p1_team_details"]))
+
+
+def build_team_index(battles):
+    """Every distinct P1 team in the training battles, with an id.
+
+    Teams come back again and again in this dataset, so a team (and very
+    likely the player behind it) can be recognised in other battles. Only
+    the team lists are used here, no outcomes. by_species maps a species
+    to the ids of the teams that contain it, which is how P2's team is
+    matched from the Pokemon it shows.
+    """
+    counts = Counter(team_key(b) for b in battles)
+    ids = {key: i for i, key in enumerate(sorted(counts))}
+    by_species = {}
+    for key, i in ids.items():
+        for name in key:
+            by_species.setdefault(name, set()).add(i)
+    return {"ids": ids, "count": {ids[k]: c for k, c in counts.items()}, "by_species": by_species}
+
+
 def load_type_chart(data_dir):
     """Read the Gen 2 type chart supplied with the competition.
 
