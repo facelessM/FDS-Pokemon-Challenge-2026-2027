@@ -499,3 +499,60 @@ below 30% HP takes an attack:
   fixed one on 2% of the test battles.
 - **Decision:** keep. This is the first gain since the final model that comes from
   information outside the 30 turns: who is playing.
+
+---
+
+## Win conditions
+
+- **Branch:** `win-conditions`. `python analysis/wincon_checks.py`, `python run.py --exp wincon_blend`.
+- **Idea:** a Gen 2 OU battle is usually decided by whether a side still has a Pokémon
+  the other side cannot stop. The type chart (E03) was too crude for this, since it
+  ignores moves, items and stats, so we learn the matchups from the battles instead.
+- **Matchup chart** (`build_matchup_chart`): whenever the same two Pokémon stay on the
+  field for two turns in a row, we record how much HP each lost. For each pair of
+  species, the edge is the HP the opponent lost minus the HP it lost, per turn, pulled
+  towards zero for pairs seen only a few times. It uses the training timelines only and
+  no outcomes. 4,398 species pairs, 592 of them with 20 or more turns of exchanges.
+- **Win conditions** (feature group `win_conditions`): for each Pokémon a side still has
+  at turn 30, its worst matchup against everything the other side has left (for P2,
+  also the members of its matched team that have not appeared yet). If even the worst
+  one is in its favour, that Pokémon is unanswered. Features: number of unanswered
+  Pokémon per side, the best worst-case edge, the same weighted by HP, the average
+  matchup, and the matchup of the two active Pokémon.
+- **Signal:**
+
+  | P1 unanswered minus P2 unanswered | Battles | P1 wins |
+  |---|---|---|
+  | -3 or less | 342 | 24.6% |
+  | -2 | 614 | 34.4% |
+  | -1 | 1,522 | 43.4% |
+  | 0 | 6,734 | 52.7% |
+  | +1 | 696 | 60.6% |
+  | +2 or more | 92 | 80.4% |
+
+- **Result:** CV 0.6939 ± 0.0087 on the usual folds, level with team records there. On
+  seeds 6 to 10, **0.6929 ± 0.0011** against 0.6901 for team records, better on four
+  and equal on one.
+- **Decision:** keep. The best model so far.
+
+
+## State reconstruction
+
+- **Code:** `experiments/state_reconstruction/run.py`. The submission uses the same
+  equal LightGBM/XGBoost blend, with 1,100 columns after fitting on all training data.
+- **What changed:** remaining HP is separated by recovery access; departures and
+  incoming HP provide uncertain evidence of unrecorded P2 KOs. Move/team records
+  are fitted inside each fold. The KO model learns from recorded P1 events, so its
+  P2 scores are features rather than confirmed deaths.
+- **Checks:** identical timelines stay in one fold, and outcome-based features use
+  inner splits. Empty damage counts, lead matching and fainted-roster handling were
+  fixed. Stable roster tie-breaking and non-mutating move lookups make fresh and
+  cached fits agree exactly. Six regression tests pass.
+- **Result:** 0.7020, 0.6995 and 0.7024 on three grouped five-fold partitions,
+  mean **0.7013**, against 0.6932 for the previous candidate on the same splits.
+  These partitions reuse the same battles. Extra hierarchy and CatBoost mixtures
+  did not give a consistent gain, so their code is retained as experiments.
+- **Public score:** **0.69533**, up from 0.69066 for team records; fourth place on
+  27 October 2026. The win-condition submission scored 0.68200.
+- **Decision:** use state reconstruction as the current submission. The exact CSV
+  hash and checks are recorded in `state_reconstruction/reproduction_check.json`.

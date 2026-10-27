@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "runs": [
+    {
+      "python_hash_seed": 0,
+      "baseline_cache": "freshly computed"
+    },
+    {
+      "python_hash_seed": 59,
+      "baseline_cache": "reused from first run"
+    }
+  ],
+  "checks": {
+    "train_features_identical": true,
+    "test_features_identical": true,
+    "probability_file_bytes_identical": true,
+    "submission_bytes_identical": true,
+    "same_prediction_source": true,
+    "probability_arrays_identical": true
+  },
+  "feature_shapes": {
+    "train": [
+      10000,
+      1100
+    ],
+    "test": [
+      5000,
+      1100
+    ]
+  },
+  "feature_sha256": {
+    "train": "51c7ff17b9e9f18aeb84abb05e8ad6d1d477c71f7cd1063f31871f2c4550bcdf",
+    "test": "50c6e057343e1bc5c2902129e93d82e9a62d1438e5c3dffaebe546cd8f1603b4"
+  },
+  "probability_file_sha256": "322bb41463a0ec7ed9cc4132d62674d557e8d8132aa6562557a0af239866a6a8",
+  "submission_sha256": "4d5844c78eb7b076b7aa726c3d021926e27905c08ccd7dd0802fb41092429884",
+  "rows": 5000,
+  "predicted_wins": 2548,
+  "scope": "Same pinned Python/package environment; exact feature/probability/CSV reproduction checked across independent processes and fresh-versus-cached baseline construction."
+}

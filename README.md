@@ -6,6 +6,11 @@ Given Player 1's full team, Player 2's lead Pokémon and the first 30 turns of a
 Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last between
 30 and 80 turns, so the model only ever sees the opening part of the game.
 
+Our current submission scores **0.69533 on the public leaderboard**, placing
+us fourth on 27 October 2026. It averages LightGBM and XGBoost with reconstructed
+battle state and move/team records. Mean grouped CV accuracy is **0.7013**.
+[Method and checks](experiments/state_reconstruction/README.md).
+
 ## Team
 
 | Name | Student ID | Email |
@@ -16,7 +21,10 @@ Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last betwee
 
 ## Results so far
 
-Accuracy from stratified 5-fold cross validation on the 10,000 training battles.
+Earlier rows use stratified 5-fold cross validation on the 10,000 training battles.
+State reconstruction uses three grouped 5-fold partitions: 0.7020, 0.6995 and
+0.7024. Identical timelines stay in one fold. These reuse the same outcomes,
+so the new mean is not an untouched holdout score.
 Each row links to the commit that produced it and is explained in
 [`experiments/log.md`](experiments/log.md).
 
@@ -31,11 +39,14 @@ Each row links to the commit that produced it and is explained in
 | E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) | |
 | **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
 | Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 | 0.6893 |
-| **Team** | Final + each team's past record, computed inside each fold | **0.6947 ± 0.0057** | **0.6907** |
+| Team | Final + each team's past record, computed inside each fold | 0.6947 ± 0.0057 | 0.6907 |
+| Win conditions | Team + unanswered Pokémon from a matchup chart learned from the battles | 0.6939 ± 0.0087 | 0.68200 |
+| **State reconstruction** | Recovery resources, uncertain opponent KOs and move/team records | **0.7013, grouped CV** | **0.69533** |
 
-The final model scores 0.6841 ± 0.0017 on CV seeds never used during development
-(`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) and the team model
-0.6901 ± 0.0018 (`analysis/team_checks.py`).
+The original blend scores 0.6841 ± 0.0017 on CV seeds never used during development
+(`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) the team model
+0.6901 ± 0.0018 (`analysis/team_checks.py`) and the win-condition model 0.6929 ± 0.0011
+(`analysis/wincon_checks.py`).
 
 ## Repository layout
 
@@ -68,7 +79,17 @@ data/sample_submission.csv
 data/type_chart_gen2.csv
 ```
 
-Then run any experiment by name:
+To reproduce the current submission:
+
+```bash
+python -m pip install -r experiments/state_reconstruction/requirements.txt
+python experiments/state_reconstruction/run.py predict --data data
+```
+
+The output is `submissions/submission_state_reconstruction_deterministic.csv`.
+Use `cv` instead of `predict` to rerun the three grouped CV partitions.
+
+Earlier experiments still run by name:
 
 ```bash
 pip install -r requirements.txt
@@ -86,19 +107,19 @@ GitHub token saved in Kaggle Secrets as `GITHUB_TOKEN`. After the competition th
 repo goes public and the token is no longer needed.
 
 The notebook does not contain any modelling code of its own. It clones the repo and
-calls `run_experiment`, so the submissions come from exactly the code in this repo.
+calls the state reconstruction entry point, with the evaluated package versions.
+It checks the generated CSV against the submitted file hash.
 
 ## How we work
 
-- **One experiment, one change.** Each idea gets its own entry in
-  `src/experiments.py`. Old entries are never edited, so every number in the log can
-  be reproduced with `python run.py --exp <name>`.
-- **Local CV decides, the leaderboard only confirms.** All folds are fixed with
-  `random_state=42`. A change is kept only if the gain is clearly above the
-  fold-to-fold noise (rule in `experiments/log.md`). We submit at most once or twice a
-  day, as a sanity check.
-- **Two scores per experiment.** Scaled logistic regression is the main score; a
-  default gradient boosting model runs next to it as a check for non-linear signal.
+- **One experiment, one change.** Early experiments have named entries in
+  `src/experiments.py`. State reconstruction has its own entry point and saved
+  comparisons under `experiments/state_reconstruction/`.
+- **Local CV decides, the leaderboard only confirms.** Early experiments use
+  `random_state=42`. The state model uses the three grouped partitions described
+  above. New models are compared on the same folds before submission.
+- **Controls for early experiments.** Scaled logistic regression was compared
+  with default gradient boosting to check for non-linear signal.
 - **Every commit says what changed and what it did to the score.** The log entry
   explains the reasoning, the commit message gives the short version.
 
