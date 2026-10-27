@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "fresh_vs_refreshed_feature_blocks": {
+    "train/obs": true,
+    "train/cats": true,
+    "train/base": true,
+    "train/record": true,
+    "train/hier": true,
+    "train/post": true,
+    "train/roster": true,
+    "train/threat": true,
+    "valid/obs": true,
+    "valid/cats": true,
+    "valid/base": true,
+    "valid/record": true,
+    "valid/hier": true,
+    "valid/post": true,
+    "valid/roster": true,
+    "valid/threat": true
+  },
+  "input_views_unchanged": true
+}

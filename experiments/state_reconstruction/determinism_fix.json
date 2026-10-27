@@ -1,0 +1,8 @@
+{
+  "scope": "Canonical move iteration and deterministic tie-breaking at roster selection cutoffs in team, threat, and move-record features.",
+  "cause": "Unordered move sets changed floating-point posterior accumulation; near-tied top-three roster choices could change substantially.",
+  "validation": "Rerun all compared model families on the same three grouped CV partitions; check features and final inference across different Python hash seeds.",
+  "prior_results": "The earlier study metrics and CSV precede this fix and remain historical artifacts, not the final branch result.",
+  "additional_cause": "Read access to defaultdict(set) inserted empty move observations. Full fitting differed according to whether baseline features came from a cache.",
+  "additional_fix": "Use plain observed-move maps, non-mutating get calls, and exclude empty evidence from learned move-prior populations."
+}

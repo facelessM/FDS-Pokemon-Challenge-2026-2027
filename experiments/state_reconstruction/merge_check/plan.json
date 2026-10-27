@@ -1,0 +1,13 @@
+{
+  "purpose": "Check whether distinct parts of the previous three candidates improve state reconstruction",
+  "seeds": [20261026, 20261105, 193],
+  "already_included": ["corrected baseline feature families", "observation and uncertainty features", "move-conditioned opponent roster posterior", "relative threat features", "LightGBM and XGBoost with unchanged parameters"],
+  "missing_components_to_test": ["8 hierarchical item/lead/team-strength numeric features", "CatBoost categorical representation combined with all reconstructed-state features", "probability diversity from each previous candidate"],
+  "additional_models": ["deep_hierarchy_lgb", "deep_hierarchy_xgb", "deep_hierarchy_cat"],
+  "fixed_mixtures": "For the current state model, test each previous candidate at 25% and 50%; the new CatBoost at 25% and one third; new hierarchy blend alone and at 50%; hierarchy blend plus one-third new CatBoost. No threshold optimization.",
+  "selection_rule": "Retain the existing candidate unless a fixed mixture or merged representation improves mean accuracy and log loss, gains accuracy in at least two seeds, and does not lose more than 0.10 percentage points in any seed. Prefer simpler choices when differences are negligible; report paired uncertainty.",
+  "minimum_mean_gain_for_extra_components": 0.001,
+  "threshold": 0.5,
+  "test_policy": "Only train OOF predictions are read for this comparison. Previously generated test predictions are not used for selection.",
+  "caution": "These are sensitivity checks on the same already explored training battles, not an untouched holdout. Additional model selection can be optimistic."
+}

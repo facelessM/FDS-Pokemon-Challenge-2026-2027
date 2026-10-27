@@ -6,6 +6,12 @@ Given Player 1's full team, Player 2's lead Pokémon and the first 30 turns of a
 Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last between
 30 and 80 turns, so the model only ever sees the opening part of the game.
 
+The [state-reconstruction study](experiments/state_reconstruction/README.md)
+adds grouped validation, uncertain opponent KO evidence, resource and move-set
+features, and checks of the previous candidate integrations. Its selected model
+has 70.1300% mean accuracy across three repeated five-fold partitions; Kaggle
+evaluation is pending. Use the study's dedicated entry point to reproduce it.
+
 ## Team
 
 | Name | Student ID | Email |

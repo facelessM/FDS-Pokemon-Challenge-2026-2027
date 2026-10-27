@@ -1,0 +1,22 @@
+{
+  "candidate": "state",
+  "weights": {
+    "deep_entry_sets_lgb": 0.5,
+    "deep_entry_sets_xgb": 0.5
+  },
+  "threshold": 0.5,
+  "selected_on": "Three paired five-fold grouped CV split seeds: 20261026,20261105,193",
+  "mean_accuracy": 0.7012999999999999,
+  "reason": "Frozen after deterministic roster ranking, non-mutating feature reads, and corrected repeated grouped CV. Uses the merge-review accuracy/log-loss/stability guard.",
+  "test_policy": "No test probabilities or leaderboard result used to select this corrected configuration. Earlier test feature comparisons were used only to diagnose reproduction differences.",
+  "data_sha256": {
+    "train.jsonl": "78f9e91c51b92adebe803bb09221347a55423dce080e433465edf527d2c20d0d",
+    "test.jsonl": "25bdbb2a2f43d6ca480228c142299d325d3ea41eebfab8c4e652447b82914d60",
+    "type_chart_gen2.csv": "66c8e6f8eaa54f07fdd586663324f5e0fbbaaa8e7f0b7e41d83729c28d837e10"
+  },
+  "filename": "submission_state_reconstruction_deterministic.csv",
+  "fixes": [
+    "canonical move iteration and roster tie-breaking",
+    "non-mutating observed-move maps and exclusion of empty evidence from priors"
+  ]
+}
