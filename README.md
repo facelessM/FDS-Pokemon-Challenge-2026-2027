@@ -6,9 +6,8 @@ Given Player 1's full team, Player 2's lead Pokémon and the first 30 turns of a
 Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last between
 30 and 80 turns, so the model only ever sees the opening part of the game.
 
-Our current submission scores **0.69533 on the public leaderboard**, placing
-us fourth on 27 October 2026. It averages LightGBM and XGBoost with reconstructed
-battle state and move/team records. Mean grouped CV accuracy is **0.7013**.
+Our current model averages LightGBM and XGBoost with reconstructed battle state
+and move/team records. Mean grouped CV accuracy is **0.7013**.
 [Method and checks](experiments/state_reconstruction/README.md).
 
 ## Team
@@ -28,20 +27,20 @@ so the new mean is not an untouched holdout score.
 Each row links to the commit that produced it and is explained in
 [`experiments/log.md`](experiments/log.md).
 
-| Exp | What changed | CV accuracy | Public LB |
-|---|---|---|---|
-| E00 | Starter notebook features + logistic regression | 0.5178 ± 0.0080 | |
-| E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 | 0.6787 |
-| E02 | + battle trajectory over 30 turns (not kept: no gain) | 0.6657 ± 0.0061 | |
-| E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 | |
-| E04 | Error analysis of E01: no new features, plan redesigned | | |
-| E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 | |
-| E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) | |
-| **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** | **0.6893** |
-| Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 | 0.6893 |
-| Team | Final + each team's past record, computed inside each fold | 0.6947 ± 0.0057 | 0.6907 |
-| Win conditions | Team + unanswered Pokémon from a matchup chart learned from the battles | 0.6939 ± 0.0087 | 0.68200 |
-| **State reconstruction** | Recovery resources, uncertain opponent KOs and move/team records | **0.7013, grouped CV** | **0.69533** |
+| Exp | What changed | CV accuracy |
+|---|---|---|
+| E00 | Starter notebook features + logistic regression | 0.5178 ± 0.0080 |
+| E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 |
+| E02 | + battle trajectory over 30 turns (not kept: no gain) | 0.6657 ± 0.0061 |
+| E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 |
+| E04 | Error analysis of E01: no new features, plan redesigned | |
+| E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 |
+| E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) |
+| **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** |
+| Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 |
+| Team | Final + each team's past record, computed inside each fold | 0.6947 ± 0.0057 |
+| Win conditions | Team + unanswered Pokémon from a matchup chart learned from the battles | 0.6939 ± 0.0087 |
+| **State reconstruction** | Recovery resources, uncertain opponent KOs and move/team records | **0.7013, grouped CV** |
 
 The original blend scores 0.6841 ± 0.0017 on CV seeds never used during development
 (`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) the team model
@@ -115,7 +114,7 @@ It checks the generated CSV against the submitted file hash.
 - **One experiment, one change.** Early experiments have named entries in
   `src/experiments.py`. State reconstruction has its own entry point and saved
   comparisons under `experiments/state_reconstruction/`.
-- **Local CV decides, the leaderboard only confirms.** Early experiments use
+- **Local CV decides.** Early experiments use
   `random_state=42`. The state model uses the three grouped partitions described
   above. New models are compared on the same folds before submission.
 - **Controls for early experiments.** Scaled logistic regression was compared

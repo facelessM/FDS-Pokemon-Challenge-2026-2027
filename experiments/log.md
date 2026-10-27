@@ -41,7 +41,6 @@ mean CV accuracy as noise, unless they show up on every fold.
   starter notebook (P1 team mean HP/Spe/Atk/Def, P2 lead HP/Spe) and the same
   logistic regression.
 - **Result:** CV **0.5178 ± 0.0080** (folds 0.5145 / 0.5190 / 0.5325 / 0.5090 / 0.5140)
-- **Leaderboard:** not submitted yet
 - **Takeaway:** barely better than a coin flip. Team averages alone say almost
   nothing about who wins, which makes sense: in OU most teams use similar Pokémon
   with similar stats, so the averages hardly vary between battles. The real signal
@@ -93,11 +92,6 @@ mean CV accuracy as noise, unless they show up on every fold.
     models later.
   - Largest standardised coefficients: `diff_hp_total` (+0.51), `p2_hp_total` (-0.44),
     `diff_n_alive` (+0.16), `p1_n_fainted` (-0.14), `diff_active_boosts` (+0.12).
-- **Leaderboard:** public score **0.67866** (first submission, 25 Oct). That is 1.2 points
-  above CV. The public board scores only part of the 5,000 test battles, so its own
-  standard error is around one point, and a gap of this size is what we would expect
-  from chance. CV and leaderboard agree, which is the first sign that our local
-  validation can be trusted.
 - **Takeaway:** a static picture of turn 30 already moves us from a coin flip to about
   two battles out of three. Some features are redundant (`n_alive` is just
   `6 - n_fainted`). That does not hurt a regularised logistic regression, but we will
@@ -349,7 +343,7 @@ data. Before adding more features we change how we pick them.
   whether each side still has it at turn 30.
 - **Model:** LightGBM + XGBoost, win probabilities averaged. These features are wide
   and sparse, which suits trees; logistic regression did worse on them.
-- **Result:** CV 0.6875 ± 0.0058. Public leaderboard **0.6893**. The code reproduces
+- **Result:** CV 0.6875 ± 0.0058. The code reproduces
   the submitted file exactly (5,000 of 5,000 predictions).
 - **Honest estimate:** seed 42 was also used while developing these features, so 0.6875
   is slightly optimistic. On CV seeds 6 to 10, never used during development
@@ -495,7 +489,7 @@ below 30% HP takes an attack:
 - **Fix:** when several known teams fit P2's Pokémon equally well, the first version took
   whichever came first in a Python set, and that order can change between runs. Ties
   now go to the lowest team id, so the result is the same on every run. The numbers
-  above are after the fix; the file submitted before it (public 0.6907) differs from the
+  above are after the fix; the file submitted before it differs from the
   fixed one on 2% of the test battles.
 - **Decision:** keep. This is the first gain since the final model that comes from
   information outside the 30 turns: who is playing.
@@ -552,7 +546,5 @@ below 30% HP takes an attack:
   mean **0.7013**, against 0.6932 for the previous candidate on the same splits.
   These partitions reuse the same battles. Extra hierarchy and CatBoost mixtures
   did not give a consistent gain, so their code is retained as experiments.
-- **Public score:** **0.69533**, up from 0.69066 for team records; fourth place on
-  27 October 2026. The win-condition submission scored 0.68200.
 - **Decision:** use state reconstruction as the current submission. The exact CSV
   hash and checks are recorded in `state_reconstruction/reproduction_check.json`.

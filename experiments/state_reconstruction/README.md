@@ -1,6 +1,6 @@
 # State reconstruction and candidate integration
 
-The frozen Kaggle candidate is the equal LightGBM/XGBoost state-reconstruction blend: **70.1300% mean accuracy** over three repeated five-fold grouped CV partitions. The three earlier candidates' distinct components were integrated and tested; none passed the predefined guard for replacing the state model. The submitted file scored **0.69533** on the public leaderboard on 27 October 2026, placing the team fourth.
+The frozen Kaggle candidate is the equal LightGBM/XGBoost state-reconstruction blend: **70.1300% mean accuracy** over three repeated five-fold grouped CV partitions. The three earlier candidates' distinct components were integrated and tested; none passed the predefined guard for replacing the state model.
 
 This experiment builds on `battle-state-fixes` (`0bffd558fbe82525636eccf7bd30ec791267783e`) and its win-conditions-v2 ancestry. It includes the three original fixes: no artificial zero-damage hit for empty attacks, inclusion of the known P2 lead in roster matching, and no resurrection of an observed-fainted P2 species. The evaluated source modules are pinned by Git blob hash. The earlier training entry point remains available; the Kaggle notebook now runs this model.
 
@@ -27,7 +27,7 @@ Every affected model family was recomputed on the same three grouped CV partitio
 
 ## Matched CV results
 
-All scores use the same 10,000 training battles. The three split seeds are repeated partitions of the same outcomes, not independent untouched validation sets. Classification uses threshold 0.5 throughout. No public leaderboard feedback or test probabilities selected the models.
+All scores use the same 10,000 training battles. The three split seeds are repeated partitions of the same outcomes, not independent untouched validation sets. Classification uses threshold 0.5 throughout. No test predictions selected the models.
 
 | Representation / mixture | 20261026 | 20261105 | 193 | Mean accuracy |
 |---|---:|---:|---:|---:|
@@ -94,4 +94,4 @@ The six regression tests cover the original fixes, roster tie-breaking, input-or
 - Removing 56 duplicate-prefix rows from scoring preserves the state model's improvement. These sensitivity checks do not make model selection independent of the training data.
 - Only the supplied battle data and type chart are used. No external replay data, usage tables, move databases, pretrained models or neural networks are added.
 - The historical feature-study README preserves earlier exploratory findings. Its old metrics and submission hash are not the current branch result.
-- This model is now included in main. The public score is one check on the frozen candidate; it was not used to select its features or weights.
+- This model is included in main. New candidates are compared on the same grouped CV partitions.

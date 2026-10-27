@@ -54,8 +54,7 @@ EXPERIMENTS = {
 
     # Final model: E05 plus what each side did (move usage and the realised
     # effect of the moves) and which common species are still standing, with
-    # a LightGBM + XGBoost blend. This is the model behind our best public
-    # score (0.6893).
+    # a LightGBM + XGBoost blend. Later models build on these feature groups.
     "final_blend": {
         "features": ["starter", "state_t30", "sacrifice",
                      "move_usage", "move_effects", "alive_species"],

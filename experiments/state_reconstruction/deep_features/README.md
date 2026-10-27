@@ -22,7 +22,7 @@ Accuracy below is out-of-fold accuracy on the supplied 10,000 training battles, 
 
 The selected candidate improves on previous submission 01 by 114, 47, and 118 correct predictions per 10,000, respectively. Mean gain is **0.93 percentage points**. Mean log loss falls from 0.57012 to 0.55703. It wins in 13 of 15 matched folds, ties in one, and loses in one; these folds are correlated and are not independent statistical replications.
 
-A paired bootstrap resamples exact-timeline battle clusters, keeping all three seed results together within each battle. Its exploratory 95% interval for the accuracy gain is **+0.386 to +1.466 percentage points** against previous submission 01, and **+0.607 to +1.790** against the corrected existing model. These intervals do not account for choosing features/models after inspecting CV. They are evidence of a stronger local signal than the earlier candidates, not a guarantee of public/private leaderboard improvement.
+A paired bootstrap resamples exact-timeline battle clusters, keeping all three seed results together within each battle. Its exploratory 95% interval for the accuracy gain is **+0.386 to +1.466 percentage points** against previous submission 01, and **+0.607 to +1.790** against the corrected existing model. These intervals do not account for choosing features/models after inspecting CV. They are evidence of a stronger local signal than the earlier candidates, not a guarantee of performance on new battles.
 
 Adding the species/move/team record block to the reconstructed-state model improves all three seeds, by 41, 24, and 56 correct predictions. Its exploratory paired interval is +0.067 to +0.744 percentage points. This is a conditional comparison within this representation, not a causal attribution or proof that these features help every model.
 
@@ -116,4 +116,4 @@ The broad first-split screening results are included in `deep_features/results/`
 
 ## Next decision
 
-Use one Kaggle attempt for `submission_state_reconstruction.csv` before spending attempts on nearby mixtures. Keep the current leaderboard submission available for comparison. Judge the fixed candidate after observing its score; do not tune thresholds from public-score feedback. The local gain is promising, but a public score is noisy and the hidden partition may differ. Main and the course report remain unchanged until the chosen work is integrated.
+The current implementation and selection are documented in the parent README. Further candidates must be compared on matched CV partitions.
