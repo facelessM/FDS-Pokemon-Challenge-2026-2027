@@ -1,0 +1,77 @@
+{
+  "seeds": [
+    20261026,
+    20261105,
+    193
+  ],
+  "component_order": [
+    "baseline",
+    "species_forecast",
+    "tactical",
+    "zero_power",
+    "raw_summary"
+  ],
+  "threshold": 0.5,
+  "repeat_accuracies": [
+    0.7071,
+    0.7047,
+    0.7062
+  ],
+  "mean_repeat_accuracy": 0.706,
+  "averaged_oof_accuracy": 0.7103,
+  "averaged_oof_log_loss": 0.5530083105216952,
+  "baseline_averaged_oof_accuracy": 0.7026,
+  "oof_components_sha256": "0cc72d36e685b5d8488b4ad0441803ed91c3b5bff80790584e517df93f88fe10",
+  "oof_probability_sha256": "2cac0c9c53b279065f89a64a805902ff28a8c177c7e2e8ada5a58b01387cc5cf",
+  "interpretation": "Repeated validation of a method selected on these battles, not an independent holdout.",
+  "submission_rows": 5000,
+  "submission_sha256": "2218959ce3dfd8c24a1e42df05a198f105dfbc8ffcfce91ac8e848ec8a1e4d26",
+  "test_components_sha256": "3064a82673531958546365c107e3de851a4418361b2444a2a3be4518a79d63a9",
+  "test_probability_sha256": "91193c5d38ab3a969ccd597ee796d207207f2978b09e5c124e63b102870b9b2e",
+  "matching_train_test_timeline_rows": 8,
+  "python_version": "3.12.14",
+  "versions": {
+    "numpy": "2.3.5",
+    "pandas": "2.2.3",
+    "scipy": "1.17.0",
+    "scikit-learn": "1.8.0",
+    "lightgbm": "4.7.0",
+    "xgboost": "3.4.1"
+  },
+  "data_sha256": {
+    "train.jsonl": "78f9e91c51b92adebe803bb09221347a55423dce080e433465edf527d2c20d0d",
+    "test.jsonl": "25bdbb2a2f43d6ca480228c142299d325d3ea41eebfab8c4e652447b82914d60",
+    "type_chart_gen2.csv": "66c8e6f8eaa54f07fdd586663324f5e0fbbaaa8e7f0b7e41d83729c28d837e10",
+    "sample_submission(1).csv": "9902229ada3a3f3fda090d9cd8de4622536f7bdd2f07fc764909a6cc18f23aac"
+  },
+  "source_sha256": {
+    "run.py": "ef4600e66b6a99377d14107eafc9cdfa8dc90d930602ce8d7464811f0e419dc1",
+    "requirements.txt": "ae82c81c44872edcde4f4e04906e936ed550c79f12f54a23626c3a103907c047",
+    "src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/base_features.py": "d0f8d514aa7702a5b879b1ae2f3fb145e385a30f1bdd11c6d85948d77b44ab3a",
+    "src/coverage.py": "d6f1202a797f8166d8af791b8be7af1023f72e89501b64b08a7dc090a6a97fd0",
+    "src/data.py": "b4c7cb07089094c4206a711baae95dde2560455e61663df20db161ee52e11a89",
+    "src/features.py": "ca1dd49a6f7a1aa4776071135b8c126a2e59da57fb3f16960e00120f83f1f4ae",
+    "src/forecast.py": "27528d02f7aeb5369bd91dcfe55f0fe00d5fa13b09ef6ddd8c8ccc4c5e7cef5f",
+    "src/knockouts.py": "36679a5c33f7090704f0674d4df8411896f5beca42c90706127584eae9313a62",
+    "src/models.py": "75f3f1934c631ef25f78f8eed0436da993b7f74c3d6a73ded9cfea503c120768",
+    "src/move_records.py": "04ede2994dd742346603d64bb03a7b0621f61de56f93adc6b68775f24a79b32e",
+    "src/observations.py": "fb8caabdb01eb744259c08e1eb65419c05704535bc32410bfb65f0a79544ac05",
+    "src/pipeline.py": "b9629b3654aa73c492e73a9ae9090f24e9df8a336b9e2646e44964d8a58c3c56",
+    "src/pressure.py": "b6151b36887652856eb09f4bac61724288d04571be8e9ba6e0da86e6c05921f0",
+    "src/raw.py": "a4f1dea6bb878fe6e078c605452a11f65c6a8bcb103918e51c7e6f4a989e2437",
+    "src/species.py": "9214a6c161417b566e2018b61b37a3a6271613621624a15876a69afd5bbd8e30",
+    "src/state.py": "62c7cbb35eb8fbf5f0d0d5049b2c09cb7db797a7f283c39acada32390d866c68",
+    "src/tactics.py": "e2ced5d9adee4dce62219b02d75b05b82ee6cd15008e135a56dea898f38536ef",
+    "src/team_context.py": "db5eb65137897f57d4744f1f1b46e7850e646bbc3c1dc9d013ef1dbc8011213f",
+    "src/validation.py": "f1617a3c27179199a7009a54c9824c7a469cbe80dfabfa841c2ecce306deff13"
+  },
+  "verification": {
+    "fresh_folds_retrained": 15,
+    "all_validation_component_probabilities_match": true,
+    "all_test_component_probabilities_match": true,
+    "aggregated_probabilities_match": true,
+    "submitted_csv_matches": true,
+    "regression_tests_passed": 9
+  }
+}

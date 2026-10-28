@@ -1,61 +1,8 @@
-"""
-Loading helpers for the competition files.
+"""Training-fold vocabularies and the supplied type chart."""
 
-Everything that touches the disk lives here, so the rest of the code
-can work with plain Python lists and dicts.
-"""
-
-import json
 from collections import Counter
 from pathlib import Path
-
 import pandas as pd
-
-
-# Where Kaggle mounts the competition data inside a notebook.
-KAGGLE_DATA_DIR = Path("/kaggle/input/competitions/fds-pokemon-battles-prediction-2026")
-
-# When running on our own machines we keep the files in a data/ folder
-# next to run.py. The folder is in .gitignore, we never commit the data.
-LOCAL_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-
-
-def find_data_dir(data_dir=None):
-    """Pick the folder that holds train.jsonl.
-
-    If a path is passed explicitly we use it. Otherwise we try Kaggle
-    first and then the local data/ folder.
-    """
-    candidates = [Path(data_dir)] if data_dir else [KAGGLE_DATA_DIR, LOCAL_DATA_DIR]
-    for folder in candidates:
-        if (folder / "train.jsonl").exists():
-            return folder
-    tried = ", ".join(str(c) for c in candidates)
-    raise FileNotFoundError(f"Could not find train.jsonl. Looked in: {tried}")
-
-
-def load_jsonl(path):
-    """Read a .jsonl file into a list of dicts (one dict per battle)."""
-    battles = []
-    with open(path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line:  # skip empty lines just in case
-                battles.append(json.loads(line))
-    return battles
-
-
-def load_battles(data_dir):
-    """Return (train_battles, test_battles) as lists of dicts."""
-    data_dir = Path(data_dir)
-    train = load_jsonl(data_dir / "train.jsonl")
-    test = load_jsonl(data_dir / "test.jsonl")
-    return train, test
-
-
-def load_sample_submission(data_dir):
-    """The sample file tells us which battle_ids to predict and in what order."""
-    return pd.read_csv(Path(data_dir) / "sample_submission.csv")
 
 
 def build_species_table(battles):
@@ -74,7 +21,9 @@ def build_species_table(battles):
         for poke in battle["p1_team_details"] + [battle["p2_lead_details"]]:
             table[poke["name"]] = {
                 "types": [t for t in poke["types"] if t != "notype"],
-                "base_total": sum(poke[f"base_{s}"] for s in ("hp", "atk", "def", "spa", "spd", "spe")),
+                "base_total": sum(
+                    poke[f"base_{s}"] for s in ("hp", "atk", "def", "spa", "spd", "spe")
+                ),
                 "base_spe": poke["base_spe"],
             }
     return table
@@ -89,15 +38,22 @@ def build_move_vocab(battles, min_battles=30):
     """
     counts = Counter(
         turn[f"{side}_move_details"]["name"]
-        for b in battles for turn in b["battle_timeline"] for side in ("p1", "p2")
+        for b in battles
+        for turn in b["battle_timeline"]
+        for side in ("p1", "p2")
         if turn[f"{side}_move_details"]
     )
     vocab = {}
     for side in ("p1", "p2"):
         used_in = Counter()
         for b in battles:
-            used_in.update({t[f"{side}_move_details"]["name"]
-                            for t in b["battle_timeline"] if t[f"{side}_move_details"]})
+            used_in.update(
+                {
+                    t[f"{side}_move_details"]["name"]
+                    for t in b["battle_timeline"]
+                    if t[f"{side}_move_details"]
+                }
+            )
         vocab[side] = [m for m, _ in counts.most_common() if used_in[m] >= min_battles]
     return vocab
 
@@ -106,55 +62,6 @@ def build_top_species(battles, n=60):
     """The n species that appear most often on P1 teams in the training battles."""
     counts = Counter(p["name"] for b in battles for p in b["p1_team_details"])
     return [name for name, _ in counts.most_common(n)]
-
-
-def team_key(battle):
-    """A P1 team, written as its six species in alphabetical order."""
-    return tuple(sorted(p["name"] for p in battle["p1_team_details"]))
-
-
-def build_team_index(battles):
-    """Every distinct P1 team in the training battles, with an id.
-
-    Teams come back again and again in this dataset, so a team (and very
-    likely the player behind it) can be recognised in other battles. Only
-    the team lists are used here, no outcomes. by_species maps a species
-    to the ids of the teams that contain it, which is how P2's team is
-    matched from the Pokemon it shows.
-    """
-    counts = Counter(team_key(b) for b in battles)
-    ids = {key: i for i, key in enumerate(sorted(counts))}
-    by_species = {}
-    for key, i in ids.items():
-        for name in key:
-            by_species.setdefault(name, set()).add(i)
-    return {"ids": ids, "keys": sorted(counts), "count": {ids[k]: c for k, c in counts.items()},
-            "by_species": by_species}
-
-
-def build_matchup_chart(battles):
-    """How each species fares against each other species, from the HP exchanges.
-
-    Whenever the same two Pokemon stay on the field for two turns in a row, we
-    record how much HP each lost in that turn. For a pair (a, b), "edge" is the
-    total HP b lost minus the HP a lost over all such turns, and "turns" the
-    number of turns. It is built from the training timelines only and uses no
-    outcomes. Unlike the type chart it reflects moves, items and stats as they
-    were actually used.
-    """
-    edge, turns = {}, {}
-    for battle in battles:
-        tl = battle["battle_timeline"]
-        for prev, cur in zip(tl, tl[1:]):
-            a0, b0 = prev["p1_pokemon_state"], prev["p2_pokemon_state"]
-            a1, b1 = cur["p1_pokemon_state"], cur["p2_pokemon_state"]
-            if a0["name"] != a1["name"] or b0["name"] != b1["name"]:
-                continue
-            e = (b0["hp_pct"] - b1["hp_pct"]) - (a0["hp_pct"] - a1["hp_pct"])
-            for pair, sign in (((a0["name"], b0["name"]), 1), ((b0["name"], a0["name"]), -1)):
-                edge[pair] = edge.get(pair, 0.0) + sign * e
-                turns[pair] = turns.get(pair, 0) + 1
-    return {"edge": edge, "turns": turns}
 
 
 def load_type_chart(data_dir):

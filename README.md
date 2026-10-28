@@ -2,13 +2,14 @@
 
 **Pokémon battle outcome prediction** · Foundations of Data Science, Sapienza Università di Roma, 2026/2027
 
-Given Player 1's full team, Player 2's lead Pokémon and the first 30 turns of a
-Gen 2 OU battle, we predict whether Player 1 goes on to win. Battles last between
-30 and 80 turns, so the model only ever sees the opening part of the game.
+We predict whether Player 1 wins from its team, Player 2's lead and the first
+30 turns of a Gen 2 OU battle. Our selected model averages five feature views
+across three grouped CV partitions. Averaging the three out-of-fold probabilities
+before classification gives **0.7103 accuracy** on the 10,000 training battles.
+The earlier state model scores **0.7026** under the same averaging rule.
 
-Our current model averages LightGBM and XGBoost with reconstructed battle state
-and move/team records. Mean grouped CV accuracy is **0.7013**.
-[Method and checks](experiments/state_reconstruction/README.md).
+These battles were also used to compare candidates. The CV result is a development
+estimate, not a new independent holdout score.
 
 ## Team
 
@@ -19,113 +20,87 @@ and move/team records. Mean grouped CV accuracy is **0.7013**.
 | Musa Alasgarov | 2242081 | alasgarov.2242081@studenti.uniroma1.it |
 | Baran Berkay Hökelek | 2243542 | hokelek.2243542@studenti.uniroma1.it |
 
-## Results so far
+## Method
 
-Earlier rows use stratified 5-fold cross validation on the 10,000 training battles.
-State reconstruction uses three grouped 5-fold partitions: 0.7020, 0.6995 and
-0.7024. Identical timelines stay in one fold. These reuse the same outcomes,
-so the new mean is not an untouched holdout score.
-Each row links to the commit that produced it and is explained in
-[`experiments/log.md`](experiments/log.md).
+Each fold combines five probabilities with equal weights:
 
-| Exp | What changed | CV accuracy |
-|---|---|---|
-| E00 | Starter notebook features + logistic regression | 0.5178 ± 0.0080 |
-| E01 | + battle state at turn 30 (faints, team HP, statuses, active Pokémon) | 0.6671 ± 0.0046 |
-| E02 | + battle trajectory over 30 turns (not kept: no gain) | 0.6657 ± 0.0061 |
-| E03 | + team strength and type matchups (not kept: no gain) | 0.6665 ± 0.0058 |
-| E04 | Error analysis of E01: no new features, plan redesigned | |
-| E05 | E01 + sacrifices split from knockouts taken | 0.6712 ± 0.0061 |
-| E06 | Model comparison on E05 features (random forest 0.6695, gradient boosting 0.6695, k-NN 0.6426) | 0.6712 (logistic regression) |
-| **Final** | E05 + move usage, move effects, species still standing; LightGBM + XGBoost | **0.6875 ± 0.0058** |
-| Compact | Final + Gen 2 roles, 176 columns kept by permutation importance | 0.6885 ± 0.0063 |
-| Team | Final + each team's past record, computed inside each fold | 0.6947 ± 0.0057 |
-| Win conditions | Team + unanswered Pokémon from a matchup chart learned from the battles | 0.6939 ± 0.0087 |
-| **State reconstruction** | Recovery resources, uncertain opponent KOs and move/team records | **0.7013, grouped CV** |
+1. Reconstructed battle state, recovery resources, uncertain P2 knockout evidence and team/move records.
+2. The same state with species-specific HP and status, plus a forecast learned from visible five-turn HP changes.
+3. The same state with consistent move-set hypotheses, defensive coverage, hazards and trade features.
+4. The same state with learned pressure for attacks whose recorded base power is zero.
+5. A separate LightGBM model of the recorded observations, including identities, last states and row summaries.
 
-The original blend scores 0.6841 ± 0.0017 on CV seeds never used during development
-(`analysis/final_checks.py`), the compact model 0.6842 ± 0.0016 (`analysis/compact_selection.py`) the team model
-0.6901 ± 0.0018 (`analysis/team_checks.py`) and the win-condition model 0.6929 ± 0.0011
-(`analysis/wincon_checks.py`).
+The first four views each average LightGBM and XGBoost. Vocabularies and learned
+statistics come from the outer training fold. Outcome records and auxiliary
+estimates for its training rows use inner grouped splits.
 
-## Repository layout
+Each partition uses five folds, with seeds `20261026`, `20261105` and `193`.
+Identical timelines stay together. Each battle therefore receives three
+out-of-fold mixture probabilities, which we average before applying `0.5`.
 
-```
-run.py                 entry point: features -> cross validation -> refit -> submission
-src/
-  data.py              loads the battles, the sample submission and the type chart
-  features.py          feature groups, one function each, plus a registry
-  models.py            model definitions (classical ML only)
-  validation.py        stratified 5-fold CV with a fixed seed
-  experiments.py       one config per experiment: which feature groups, which model
-experiments/
-  log.md               what we tried, why, what happened, what we decided
-  results.csv          raw CV numbers, appended by run.py with the commit hash
-analysis/
-  eXX_checks.py        side checks quoted in the log, same folds as the experiments
-notebooks/
-  kaggle.ipynb         clones this repo on Kaggle and builds the final submissions
-```
+| Evaluation | Earlier state model | Five-view model |
+|---|---:|---:|
+| Mean accuracy of the three separate partitions | 0.7013 | 0.7060 |
+| Accuracy after averaging the three OOF probabilities | 0.7026 | **0.7103** |
 
-## Quick start
+For test prediction, each battle uses one fold ensemble from each partition.
+A timeline already present in training uses its held-out fold. New timelines
+use a fixed hash. This preserves the evaluated training size and number of
+predictions per battle. We do not average all fifteen fold ensembles or refit
+the winner classifiers on all 10,000 rows.
 
-Put the competition files in a `data/` folder at the root of the repo. The folder is
-ignored by git, we never commit the data.
+[Methodology](docs/methodology.md) explains the features, approximations, inner
+splits and results. [Reference results](results/reference.json) record the
+expected metrics and prediction hashes.
 
-```
-data/train.jsonl
-data/test.jsonl
-data/sample_submission.csv
-data/type_chart_gen2.csv
-```
+## Reproduce
 
-To reproduce the current submission:
+Use Python 3.12 (tested with 3.12.14) and the versions in `requirements.txt`. Place the four competition
+files in `data/`: `train.jsonl`, `test.jsonl`, `sample_submission.csv` and
+`type_chart_gen2.csv`.
 
 ```bash
-python -m pip install -r experiments/state_reconstruction/requirements.txt
-python experiments/state_reconstruction/run.py predict --data data
+python -m pip install -r requirements.txt
+python run.py predict --data data --jobs 2
 ```
 
-The output is `submissions/submission_state_reconstruction_deterministic.csv`.
-Use `cv` instead of `predict` to rerun the three grouped CV partitions.
+This builds every feature from the competition files, trains all fifteen fold
+ensembles, evaluates OOF predictions and writes
+`outputs/predict/submission_matched_core_summary.csv`. The folder also contains
+per-fold probabilities, logs and `metrics.json`. Two workers are the default;
+use `--jobs 1` if memory is limited. This is a full training run, not a quick demo.
 
-Earlier experiments still run by name:
+To run CV without loading the test set:
 
 ```bash
-pip install -r requirements.txt
-python run.py --exp e00_starter
+python run.py cv --data data --jobs 2
+python -m unittest discover -s tests -v
 ```
 
-You get the CV score per fold, a new line in `experiments/results.csv` and the
-submission file in `submissions/e00_starter.csv`.
+Interrupted runs reuse completed folds only when the input files, source and
+package versions match. Use a new `--output` directory after changing any of
+them. To rebuild the CSV and metrics from completed folds:
 
-## Running on Kaggle
+```bash
+python run.py collect --data data --output outputs/predict
+```
 
-Open `notebooks/kaggle.ipynb` in a notebook attached to the competition, switch on
-Internet access and run all cells. While the repo is private the notebook needs a
-GitHub token saved in Kaggle Secrets as `GITHUB_TOKEN`. After the competition the
-repo goes public and the token is no longer needed.
+## Code layout
 
-The notebook does not contain any modelling code of its own. It clones the repo and
-calls the state reconstruction entry point, with the evaluated package versions.
-It checks the generated CSV against the submitted file hash.
+- `run.py` is the only training entry point.
+- `src/pipeline.py` prepares inputs, runs folds and writes predictions.
+- `src/validation.py` holds splits, routing, weights and the threshold.
+- `src/features.py` assembles the four core views and their inner estimates.
+- The other `src/` modules contain the corresponding feature calculations.
+- `notebooks/kaggle.ipynb` clones this repository and runs the same entry point.
 
-## How we work
+Main contains the selected method. Earlier experiment code and results remain
+in [the preceding revision](https://github.com/facelessM/FDS-Pokemon-Challenge-2026-2027/tree/f4c233b8e9523779b3a29c8eec1e3d229323f158).
 
-- **One experiment, one change.** Early experiments have named entries in
-  `src/experiments.py`. State reconstruction has its own entry point and saved
-  comparisons under `experiments/state_reconstruction/`.
-- **Local CV decides.** Early experiments use
-  `random_state=42`. The state model uses the three grouped partitions described
-  above. New models are compared on the same folds before submission.
-- **Controls for early experiments.** Scaled logistic regression was compared
-  with default gradient boosting to check for non-linear signal.
-- **Every commit says what changed and what it did to the score.** The log entry
-  explains the reasoning, the commit message gives the short version.
+## Competition rules
 
-## Competition rules we follow
-
-- Classical machine learning only, no neural networks and no pretrained models.
-- Only the competition data and the supplied Gen 2 type chart. No external databases,
-  replay datasets, usage statistics or hand-made tables.
-- The test set is never used to choose features or tune parameters.
+We use classical machine learning and only the competition files and supplied
+Gen 2 type chart. Species statistics, move examples and roster frequencies are
+learned from the training battles. We use no external databases, replays,
+usage statistics, pretrained models or manually collected tables. Test predictions
+are not used to select features, weights, routing or the threshold.

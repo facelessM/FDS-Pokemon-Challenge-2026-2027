@@ -1,6 +1,6 @@
-# Tested with these versions. Kaggle images already ship with all of them.
-numpy>=1.26
-pandas>=2.0
-scikit-learn>=1.4
-lightgbm>=4.0
-xgboost>=2.0
+numpy==2.3.5
+pandas==2.2.3
+scipy==1.17.0
+scikit-learn==1.8.0
+lightgbm==4.7.0
+xgboost==3.4.1
