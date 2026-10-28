@@ -95,3 +95,11 @@ The six regression tests cover the original fixes, roster tie-breaking, input-or
 - Only the supplied battle data and type chart are used. No external replay data, usage tables, move databases, pretrained models or neural networks are added.
 - The historical feature-study README preserves earlier exploratory findings. Its old metrics and submission hash are not the current branch result.
 - This model is included in main. New candidates are compared on the same grouped CV partitions.
+
+## Cache reuse
+
+CV and prediction runs check cached files against the training data, code and
+package versions. Prediction caches also check the test input. After editing an
+experiment, use `--refresh-cache` to move previous generated files into
+`cache_archive/` and rebuild them. Older caches without a manifest need this once.
+

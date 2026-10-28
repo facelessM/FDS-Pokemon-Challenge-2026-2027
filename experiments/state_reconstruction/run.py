@@ -1,6 +1,7 @@
 """Entry point for isolated state-reconstruction experiments and predictions."""
 import argparse,os,shutil,subprocess,sys
 from pathlib import Path
+from cache_guard import validate_cache
 
 STUDY=Path(__file__).resolve().parent
 REPO=STUDY.parents[1]
@@ -12,6 +13,7 @@ def main():
     ap.add_argument('--data',type=Path,default=REPO/'data')
     ap.add_argument('--seeds',type=int,nargs='+',default=SEEDS)
     ap.add_argument('--output',type=Path,default=REPO/'submissions/submission_state_reconstruction_deterministic.csv')
+    ap.add_argument('--refresh-cache',action='store_true',help='Archive generated caches and predictions before rebuilding them')
     args=ap.parse_args();data=args.data.resolve();env=dict(os.environ)
     env['POKEMON_DATA_DIR']=str(data);env.setdefault('OPENBLAS_NUM_THREADS','1');env.setdefault('OMP_NUM_THREADS','2');env.setdefault('PYTHONHASHSEED','0')
     def run(script,*params):
@@ -20,6 +22,9 @@ def main():
         for name in ['train.jsonl','type_chart_gen2.csv']:
             if not (data/name).is_file():ap.error(f'Missing competition file: {data/name}')
         run('scratchboard/bootstrap_reference.py','--repo',REPO)
+        if args.action=='predict' and not (data/'test.jsonl').is_file():ap.error(f'Missing competition file: {data/"test.jsonl"}')
+        archived=validate_cache(STUDY,data,args.action,refresh=args.refresh_cache)
+        if archived:print(f'Previous cached files: {archived}',flush=True)
     if args.action=='cv':
         for seed in args.seeds:
             run('scratchboard/prepare.py','--data',data,'--seed',seed)
