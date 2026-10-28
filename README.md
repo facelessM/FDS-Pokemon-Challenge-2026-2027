@@ -17,6 +17,7 @@ and move/team records. Mean grouped CV accuracy is **0.7013**.
 | Özgür Cihan Karahan | 2233702 | karahan.2233702@studenti.uniroma1.it |
 | Gabriele Fiacconi | 2060444 | fiacconi.2060444@studenti.uniroma1.it |
 | Musa Alasgarov | 2242081 | alasgarov.2242081@studenti.uniroma1.it |
+| Baran Berkay Hökelek | 2243542 | hokelek.2243542@studenti.uniroma1.it |
 
 ## Results so far
 
