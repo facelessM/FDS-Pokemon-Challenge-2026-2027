@@ -20,6 +20,36 @@ estimate, not a new independent holdout score.
 | Musa Alasgarov | 2242081 | alasgarov.2242081@studenti.uniroma1.it |
 | Baran Berkay Hökelek | 2243542 | hokelek.2243542@studenti.uniroma1.it |
 
+## Development history
+
+We keep the earlier submissions and unsuccessful experiments in the
+[development history](docs/development_history.md), with the numerical record in
+[history.json](results/history.json). The report also follows this progression.
+
+| Stage | Main change | Recorded CV accuracy |
+|---|---|---:|
+| Starter | Team and lead averages | 0.5178 |
+| E01 | Last-observed battle state | 0.6671 |
+| E05 | Separate sacrifice moves | 0.6712 |
+| Wide tree blend | Move usage, effects and surviving species | 0.6875 |
+| Compact blend | Role counts and 176 selected columns | 0.6885 |
+| Team records | Inner-fold records and deterministic roster matching | 0.6947 |
+| First win conditions | Species-pair HP exchanges | 0.6939 |
+| State reconstruction | Recovery, uncertain departures and move records | 0.7013 |
+| Species and forecasts | Species HP/status and five-turn changes | 0.7036 |
+| Tactical coverage | Move hypotheses and remaining defensive answers | 0.7051 |
+| Matched five-view mixture | Three OOF probabilities averaged per battle | **0.7103** |
+
+The first seven rows use the original seed-42 CV. The next three are means of
+three grouped partitions. The final row scores averaged OOF probabilities, whose
+separate-partition mean is 0.7060. These are historical milestones with different
+evaluation procedures, not one directly comparable score series. The team-record
+row is after its tie-breaking fix; its earlier submitted file used the previous version.
+
+Trajectory and basic type summaries, hierarchy/CatBoost mixtures, uncertainty
+features, ordered observations, state-signal trials and learned mixture weights
+are also documented, including cases that did not justify a replacement.
+
 ## Method
 
 Each fold combines five probabilities with equal weights:
@@ -94,7 +124,7 @@ python run.py collect --data data --output outputs/predict
 - The other `src/` modules contain the corresponding feature calculations.
 - `notebooks/kaggle.ipynb` clones this repository and runs the same entry point.
 
-Main contains the selected method. Earlier experiment code and results remain
+Main contains the selected training method and its development history. Earlier experiment code and results remain
 in [the preceding revision](https://github.com/facelessM/FDS-Pokemon-Challenge-2026-2027/tree/f4c233b8e9523779b3a29c8eec1e3d229323f158).
 
 ## Competition rules

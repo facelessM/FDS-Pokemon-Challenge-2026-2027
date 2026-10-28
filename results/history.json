@@ -1,0 +1,724 @@
+{
+  "scope": "Recorded development results. Historical experiments were not all rerun through the current pipeline.",
+  "protocols": {
+    "early": "Stratified five-fold CV, seed 42, threshold 0.5.",
+    "early_repeats": "Mean of stratified five-fold CV accuracies over seeds 6 to 10.",
+    "grouped": "Mean of grouped five-fold partition accuracies for seeds 20261026, 20261105 and 193.",
+    "averaged_oof": "Accuracy after averaging the three held-out probabilities per battle, threshold 0.5."
+  },
+  "early_runs": [
+    {
+      "date": "2026-10-25 20:30",
+      "commit": "45d623a",
+      "experiment": "e00_starter",
+      "n_features": 6,
+      "cv_mean": 0.5178,
+      "cv_std": 0.008,
+      "fold_scores": [
+        0.5145,
+        0.519,
+        0.5325,
+        0.509,
+        0.514
+      ]
+    },
+    {
+      "date": "2026-10-25 20:39",
+      "commit": "e2e6a82",
+      "experiment": "e00b_starter_scaled",
+      "n_features": 6,
+      "cv_mean": 0.5164,
+      "cv_std": 0.0063,
+      "fold_scores": [
+        0.5115,
+        0.518,
+        0.528,
+        0.511,
+        0.5135
+      ]
+    },
+    {
+      "date": "2026-10-25 20:39",
+      "commit": "e2e6a82",
+      "experiment": "e01_state_t30",
+      "n_features": 39,
+      "cv_mean": 0.6671,
+      "cv_std": 0.0046,
+      "fold_scores": [
+        0.6625,
+        0.6725,
+        0.661,
+        0.671,
+        0.6685
+      ]
+    },
+    {
+      "date": "2026-10-25 21:38",
+      "commit": "25347dc",
+      "experiment": "e02_trajectory",
+      "n_features": 58,
+      "cv_mean": 0.6657,
+      "cv_std": 0.0061,
+      "fold_scores": [
+        0.657,
+        0.672,
+        0.66,
+        0.6715,
+        0.668
+      ]
+    },
+    {
+      "date": "2026-10-25 21:57",
+      "commit": "e0b9560",
+      "experiment": "e03_matchup",
+      "n_features": 55,
+      "cv_mean": 0.6665,
+      "cv_std": 0.0058,
+      "fold_scores": [
+        0.6605,
+        0.6745,
+        0.6615,
+        0.6725,
+        0.6635
+      ]
+    },
+    {
+      "date": "2026-10-25 23:23",
+      "commit": "6a6b8b1",
+      "experiment": "e05_sacrifice",
+      "n_features": 45,
+      "cv_mean": 0.6712,
+      "cv_std": 0.0061,
+      "fold_scores": [
+        0.663,
+        0.6815,
+        0.668,
+        0.6705,
+        0.673
+      ]
+    },
+    {
+      "date": "2026-10-25 23:23",
+      "commit": "6a6b8b1",
+      "experiment": "e05_sacrifice[gb_default]",
+      "n_features": 45,
+      "cv_mean": 0.6695,
+      "cv_std": 0.0038,
+      "fold_scores": [
+        0.6675,
+        0.6645,
+        0.6705,
+        0.676,
+        0.669
+      ]
+    },
+    {
+      "date": "2026-10-25 23:23",
+      "commit": "6a6b8b1",
+      "experiment": "e01_state_t30[gb_default]",
+      "n_features": 39,
+      "cv_mean": 0.6707,
+      "cv_std": 0.0024,
+      "fold_scores": [
+        0.668,
+        0.672,
+        0.6705,
+        0.6745,
+        0.6685
+      ]
+    },
+    {
+      "date": "2026-10-25 23:28",
+      "commit": "53b5bc0",
+      "experiment": "e05_sacrifice",
+      "n_features": 45,
+      "cv_mean": 0.6712,
+      "cv_std": 0.0061,
+      "fold_scores": [
+        0.663,
+        0.6815,
+        0.668,
+        0.6705,
+        0.673
+      ]
+    },
+    {
+      "date": "2026-10-25 23:28",
+      "commit": "53b5bc0",
+      "experiment": "e05_sacrifice[knn_scaled]",
+      "n_features": 45,
+      "cv_mean": 0.6426,
+      "cv_std": 0.0102,
+      "fold_scores": [
+        0.65,
+        0.647,
+        0.624,
+        0.652,
+        0.64
+      ]
+    },
+    {
+      "date": "2026-10-25 23:29",
+      "commit": "53b5bc0",
+      "experiment": "e05_sacrifice[random_forest]",
+      "n_features": 45,
+      "cv_mean": 0.6695,
+      "cv_std": 0.004,
+      "fold_scores": [
+        0.67,
+        0.666,
+        0.666,
+        0.677,
+        0.6685
+      ]
+    },
+    {
+      "date": "2026-10-25 23:29",
+      "commit": "53b5bc0",
+      "experiment": "e05_sacrifice[gb_default]",
+      "n_features": 45,
+      "cv_mean": 0.6695,
+      "cv_std": 0.0038,
+      "fold_scores": [
+        0.6675,
+        0.6645,
+        0.6705,
+        0.676,
+        0.669
+      ]
+    },
+    {
+      "date": "2026-10-26 01:00",
+      "commit": "072e8dc",
+      "experiment": "final_blend",
+      "n_features": 404,
+      "cv_mean": 0.6875,
+      "cv_std": 0.0058,
+      "fold_scores": [
+        0.6875,
+        0.6915,
+        0.681,
+        0.696,
+        0.6815
+      ]
+    },
+    {
+      "date": "2026-10-26 13:30",
+      "commit": "0696cee",
+      "experiment": "compact_blend",
+      "n_features": 176,
+      "cv_mean": 0.6885,
+      "cv_std": 0.0063,
+      "fold_scores": [
+        0.682,
+        0.6875,
+        0.689,
+        0.7,
+        0.684
+      ]
+    },
+    {
+      "date": "2026-10-26 14:22",
+      "commit": "d0fc3df",
+      "experiment": "team_blend",
+      "n_features": 407,
+      "cv_mean": 0.6933,
+      "cv_std": 0.0072,
+      "fold_scores": [
+        0.6885,
+        0.6875,
+        0.6975,
+        0.7055,
+        0.6875
+      ]
+    },
+    {
+      "date": "2026-10-26 17:42",
+      "commit": "aa5ac1d",
+      "experiment": "team_blend",
+      "n_features": 407,
+      "cv_mean": 0.6947,
+      "cv_std": 0.0057,
+      "fold_scores": [
+        0.6885,
+        0.6905,
+        0.696,
+        0.705,
+        0.6935
+      ]
+    },
+    {
+      "date": "2026-10-26 17:43",
+      "commit": "aa5ac1d",
+      "experiment": "wincon_blend",
+      "n_features": 418,
+      "cv_mean": 0.6939,
+      "cv_std": 0.0087,
+      "fold_scores": [
+        0.6875,
+        0.685,
+        0.7045,
+        0.7045,
+        0.688
+      ]
+    }
+  ],
+  "early_repeated_partition_means": {
+    "wide_blend": 0.6841,
+    "compact_blend": 0.6842,
+    "team_records_corrected": 0.6901,
+    "win_conditions": 0.6929
+  },
+  "state_reconstruction": {
+    "selected": "state",
+    "accuracies": [
+      0.702,
+      0.6995,
+      0.7024
+    ],
+    "mean_accuracy": 0.7012999999999999,
+    "mean_log_loss": 0.5573596049925401,
+    "comparisons": {
+      "state": {
+        "delta": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "net_correct_by_seed": [
+          0,
+          0,
+          0
+        ]
+      },
+      "previous_01": {
+        "delta": 0.008066666666666666,
+        "ci95": [
+          0.002566647422439934,
+          0.013341371512924098
+        ],
+        "net_correct_by_seed": [
+          108,
+          58,
+          76
+        ]
+      },
+      "previous_02": {
+        "delta": 0.0091,
+        "ci95": [
+          0.003833716705003833,
+          0.01416539183666242
+        ],
+        "net_correct_by_seed": [
+          90,
+          67,
+          116
+        ]
+      },
+      "previous_03": {
+        "delta": 0.009366666666666667,
+        "ci95": [
+          0.003799553597797693,
+          0.0146
+        ],
+        "net_correct_by_seed": [
+          112,
+          52,
+          117
+        ]
+      }
+    },
+    "uncertainty": "Exploratory paired battle-cluster bootstrap, not adjusted for repeated model selection."
+  },
+  "uncertainty_round_mean_accuracies": {
+    "baseline": 0.7013,
+    "ko_risk": 0.7009,
+    "all_rosters": 0.7007,
+    "move_evidence": 0.70117,
+    "joint": 0.7
+  },
+  "species_forecast_round_mean_accuracies": {
+    "baseline": 0.7013,
+    "species_state": 0.70303,
+    "species_move_hp": 0.70137,
+    "forecast": 0.70207,
+    "all_three": 0.70213,
+    "species_forecast": 0.7036
+  },
+  "tactical_confirmation": {
+    "accuracy": [
+      0.7058,
+      0.7055,
+      0.7019,
+      0.702,
+      0.7015,
+      0.7021,
+      0.7076,
+      0.7044,
+      0.7044
+    ],
+    "baseline_accuracy": [
+      0.702,
+      0.7017,
+      0.7031,
+      0.6995,
+      0.6977,
+      0.6978,
+      0.7024,
+      0.7019,
+      0.7012
+    ],
+    "gain": [
+      0.0038000000000000256,
+      0.0038000000000000256,
+      -0.0011999999999999789,
+      0.0024999999999999467,
+      0.0038000000000000256,
+      0.0042999999999999705,
+      0.005199999999999982,
+      0.0025000000000000577,
+      0.0031999999999999806
+    ],
+    "mean_accuracy": 0.703911111111111,
+    "mean_gain": 0.003100000000000004,
+    "positive_comparisons": 8,
+    "mean_log_loss_gain": -0.0017859484856688325,
+    "fourth_accuracy": 0.7048,
+    "fourth_gain": 0.0023999999999999577,
+    "fourth_log_loss_gain": -0.0017712325576515475,
+    "confirmation_pass": true
+  },
+  "fundamental_checks": {
+    "scope": "Diagnosis only. No model is promoted and no new submission is produced.",
+    "new_winner_classifier_fits": 34,
+    "source_classifier_fits": 6,
+    "single_partition_accuracy": {
+      "reference": 0.702,
+      "without_outcome_records": 0.6948,
+      "observed_blocks": 0.6901,
+      "resource_summary": 0.6718
+    },
+    "original_fold_predictions_reproduced": true,
+    "decision": "Keep the frozen reference. Separate subsequent model selection from evaluation and test a distinct representation before adding further tactical indices.",
+    "limits": [
+      "The control partition was used in earlier development.",
+      "The source probes cannot rule out hidden conditional shifts or public-subset differences.",
+      "Repeated training and validation seeds do not create new independent battles.",
+      "No confirmed cause for an external score change is established by these checks."
+    ]
+  },
+  "ordered_observations": {
+    "seed": 193,
+    "scores": {
+      "p": {
+        "accuracy": 0.7029,
+        "log_loss": 0.5583451432863995,
+        "auc": 0.78239804
+      },
+      "reference": {
+        "accuracy": 0.7024,
+        "log_loss": 0.5568598607164519,
+        "auc": 0.7826139999999999
+      },
+      "calibrated": {
+        "accuracy": 0.7001,
+        "log_loss": 0.5573619073178746,
+        "auc": 0.78258388
+      }
+    },
+    "primary_gate_pass": false,
+    "limits": "The selection rule is evaluated outside its inner folds. Battles and historical partitions are reused; earlier human choices remain adaptive. Bootstrap conditions on fitted predictions. Discovery partition 20261026 is excluded from this evaluation."
+  },
+  "state_signal_trials": [
+    {
+      "variant": "soft_ko",
+      "mean_accuracy": 0.7018333333333332,
+      "mean_accuracy_delta": 0.0005333333333333116,
+      "mean_log_loss_delta": -0.0004273962158110785,
+      "positive_seeds": 2,
+      "positive_folds": 6,
+      "cluster_bootstrap_95": [
+        -0.0016994944008299209,
+        0.0028663800286638005
+      ],
+      "passes_prespecified_guard": false
+    },
+    {
+      "variant": "heal_bell",
+      "mean_accuracy": 0.7004666666666667,
+      "mean_accuracy_delta": -0.0008333333333333526,
+      "mean_log_loss_delta": -0.0005077141800887697,
+      "positive_seeds": 0,
+      "positive_folds": 7,
+      "cluster_bootstrap_95": [
+        -0.0029643248615821454,
+        0.0011665529280405294
+      ],
+      "passes_prespecified_guard": false
+    },
+    {
+      "variant": "zero_power",
+      "mean_accuracy": 0.7022333333333334,
+      "mean_accuracy_delta": 0.0009333333333333046,
+      "mean_log_loss_delta": -0.0001804301311287467,
+      "positive_seeds": 3,
+      "positive_folds": 9,
+      "cluster_bootstrap_95": [
+        -0.0014004236284891074,
+        0.0033363927905640176
+      ],
+      "passes_prespecified_guard": false
+    },
+    {
+      "variant": "joint",
+      "mean_accuracy": 0.7014,
+      "mean_accuracy_delta": 9.999999999998899e-05,
+      "mean_log_loss_delta": -0.0005531279553913823,
+      "positive_seeds": 2,
+      "positive_folds": 8,
+      "cluster_bootstrap_95": [
+        -0.0024999999999999996,
+        0.0026666666666666666
+      ],
+      "passes_prespecified_guard": false
+    }
+  ],
+  "fixed_combinations": [
+    {
+      "model": "baseline",
+      "mean_accuracy": 0.7012999999999999,
+      "mean_accuracy_delta": 0.0,
+      "mean_log_loss": 0.5573596049925401,
+      "positive_partitions": 0
+    },
+    {
+      "model": "species_forecast",
+      "mean_accuracy": 0.7035999999999999,
+      "mean_accuracy_delta": 0.0023000000000000056,
+      "mean_log_loss": 0.5564130780171712,
+      "positive_partitions": 3
+    },
+    {
+      "model": "tactical",
+      "mean_accuracy": 0.7051333333333334,
+      "mean_accuracy_delta": 0.0038333333333333184,
+      "mean_log_loss": 0.5553417086233184,
+      "positive_partitions": 3
+    },
+    {
+      "model": "zero_power",
+      "mean_accuracy": 0.7022333333333334,
+      "mean_accuracy_delta": 0.0009333333333333046,
+      "mean_log_loss": 0.5571791748614113,
+      "positive_partitions": 3
+    },
+    {
+      "model": "feature_union",
+      "mean_accuracy": 0.7017000000000001,
+      "mean_accuracy_delta": 0.00039999999999999297,
+      "mean_log_loss": 0.55646858982758,
+      "positive_partitions": 2
+    },
+    {
+      "model": "core_equal",
+      "mean_accuracy": 0.7040000000000001,
+      "mean_accuracy_delta": 0.002699999999999999,
+      "mean_log_loss": 0.5544328279842071,
+      "positive_partitions": 3
+    },
+    {
+      "model": "core_anchor",
+      "mean_accuracy": 0.7039666666666667,
+      "mean_accuracy_delta": 0.002666666666666669,
+      "mean_log_loss": 0.5545331220364264,
+      "positive_partitions": 3
+    },
+    {
+      "model": "core_summary",
+      "mean_accuracy": 0.706,
+      "mean_accuracy_delta": 0.0047,
+      "mean_log_loss": 0.5555707769629427,
+      "positive_partitions": 3
+    },
+    {
+      "model": "core_stints",
+      "mean_accuracy": 0.7064,
+      "mean_accuracy_delta": 0.005099999999999993,
+      "mean_log_loss": 0.556075797057945,
+      "positive_partitions": 3
+    },
+    {
+      "model": "union_anchor",
+      "mean_accuracy": 0.7025666666666667,
+      "mean_accuracy_delta": 0.0012666666666666382,
+      "mean_log_loss": 0.5555747893277508,
+      "positive_partitions": 3
+    },
+    {
+      "model": "union_summary",
+      "mean_accuracy": 0.7052333333333333,
+      "mean_accuracy_delta": 0.003933333333333307,
+      "mean_log_loss": 0.5567508879515402,
+      "positive_partitions": 3
+    },
+    {
+      "model": "union_stints",
+      "mean_accuracy": 0.7044,
+      "mean_accuracy_delta": 0.0030999999999999917,
+      "mean_log_loss": 0.5572694536105044,
+      "positive_partitions": 3
+    }
+  ],
+  "learned_weights": {
+    "seed": 193,
+    "scores": {
+      "baseline": {
+        "accuracy": 0.7024,
+        "log_loss": 0.5568598607164519
+      },
+      "stack": {
+        "accuracy": 0.7042,
+        "log_loss": 0.5535610978742362
+      },
+      "candidate": {
+        "accuracy": 0.7066,
+        "log_loss": 0.5549539766258138
+      },
+      "fixed_summary": {
+        "accuracy": 0.7062,
+        "log_loss": 0.5550794211820085
+      }
+    },
+    "comparison": {
+      "accuracy_gain": 0.0042,
+      "log_loss_change": -0.001905884090638077,
+      "interval95": [
+        -0.0004001210367111734,
+        0.008702676092001106
+      ],
+      "fold_gains": [
+        0.0035,
+        0.005,
+        0.009,
+        0.003,
+        0.0005
+      ],
+      "fixed_errors": 307,
+      "new_errors": 265,
+      "positive_folds": 5
+    },
+    "primary_gate_pass": false,
+    "caveat": "Outer labels were excluded from weight fitting. Historical human feature selection still used these battles. The interval conditions on fitted predictions."
+  },
+  "three_probability_aggregation": [
+    {
+      "model": "baseline",
+      "mean_original_accuracy": 0.7012999999999999,
+      "aggregated_accuracy": 0.7026,
+      "aggregated_log_loss": 0.5531754768486639,
+      "gain_over_aggregated_baseline": 0.0,
+      "log_loss_change_over_aggregated_baseline": 0.0,
+      "fixes_over_aggregated_baseline": 0,
+      "breaks_over_aggregated_baseline": 0,
+      "conditional_interval95": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "model": "core_equal",
+      "mean_original_accuracy": 0.7040000000000001,
+      "aggregated_accuracy": 0.7043,
+      "aggregated_log_loss": 0.5510439156791579,
+      "gain_over_aggregated_baseline": 0.0017,
+      "log_loss_change_over_aggregated_baseline": -0.002131561169505969,
+      "fixes_over_aggregated_baseline": 123,
+      "breaks_over_aggregated_baseline": 106,
+      "conditional_interval95": [
+        -0.0013002633036360196,
+        0.004605098690709238
+      ]
+    },
+    {
+      "model": "core_summary",
+      "mean_original_accuracy": 0.706,
+      "aggregated_accuracy": 0.7103,
+      "aggregated_log_loss": 0.5530083105216952,
+      "gain_over_aggregated_baseline": 0.0077,
+      "log_loss_change_over_aggregated_baseline": -0.00016716632696867073,
+      "fixes_over_aggregated_baseline": 272,
+      "breaks_over_aggregated_baseline": 195,
+      "conditional_interval95": [
+        0.00340270515391701,
+        0.011896431070678797
+      ]
+    },
+    {
+      "model": "core_stints",
+      "mean_original_accuracy": 0.7064,
+      "aggregated_accuracy": 0.7092,
+      "aggregated_log_loss": 0.5535546243103671,
+      "gain_over_aggregated_baseline": 0.0066,
+      "log_loss_change_over_aggregated_baseline": 0.0003791474617031998,
+      "fixes_over_aggregated_baseline": 273,
+      "breaks_over_aggregated_baseline": 207,
+      "conditional_interval95": [
+        0.0022010950453217808,
+        0.010997827931663942
+      ]
+    }
+  ],
+  "current_reference": "reference.json",
+  "historical_code_checkpoint": "https://github.com/facelessM/FDS-Pokemon-Challenge-2026-2027/tree/f4c233b8e9523779b3a29c8eec1e3d229323f158",
+  "source_records": [
+    {
+      "record": "repo/experiments/log.md",
+      "sha256": "4d1c7901e6be022275ee4397c3e02622179eb0d14952a587fc1fe22f509ea333"
+    },
+    {
+      "record": "repo/experiments/results.csv",
+      "sha256": "1f44633e4a380ec3838cb20d072bd1d8545a344b50a6b6e8de6aa817ff453ac8"
+    },
+    {
+      "record": "repo/experiments/state_reconstruction/merge_check/results/selected_validation.json",
+      "sha256": "da7f9044bdff3cd2b5d90771ef61b804a3960a4c6028f408e3765a807e181eba"
+    },
+    {
+      "record": "prior/pokemon_scratchbook_round2/scratchbook_round2/README.md",
+      "sha256": "f8bb99b0b4216caed1673b067654a8838b8512e0e3809f3092c68f5977764a76"
+    },
+    {
+      "record": "prior/pokemon_scratchbook_round3/scratchbook_round3/README.md",
+      "sha256": "82537add0687f04d6e61ae66544a86d523fdf9964509927273d910030067bb19"
+    },
+    {
+      "record": "prior/tactical/selection.json",
+      "sha256": "a77951fdf9224dc554d8bebb193cbedddf6f693df340f0ce7587d2708f44f21d"
+    },
+    {
+      "record": "prior/fundamental_model_diagnosis/results/summary.json",
+      "sha256": "ae8f922d9aeb8077bd9a35e8e162017344f8d07b33e56f70baa7cba84ca2a546"
+    },
+    {
+      "record": "prior/pokemon_ordered_observations/results/complement_193_review.json",
+      "sha256": "733fb7e67c329e048ec0ca3db9606b8b59d43d5ac108b49cb4475c8e2acc7473"
+    },
+    {
+      "record": "review.json",
+      "sha256": "a8809f79b985a6a68cad0a0438c80ff02377abf012b43f231a3a7552a0fe5fd7"
+    },
+    {
+      "record": "review.json",
+      "sha256": "9f9732160b65a649e08392eb46d3213fb272e5c686a3b426af991dea200bcdf7"
+    },
+    {
+      "record": "nested_review_193.json",
+      "sha256": "4a9e2daf5d61909e120bbdf9f025aa669acb7121a229db8d6dd761cef3355235"
+    },
+    {
+      "record": "bagging_diagnostics.json",
+      "sha256": "73bf813b3c2ba895e1069e96266dc369c06352f6391d5e10e364ad9f8f172969"
+    }
+  ],
+  "limitation": "These procedures reuse the same training battles. Conditional intervals and new partition seeds do not remove historical feature-selection bias."
+}
