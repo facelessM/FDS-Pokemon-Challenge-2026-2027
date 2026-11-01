@@ -42,6 +42,7 @@ def fit_forecast(z, fit, target):
 def crossfit_forecast(z, y, groups, tr, va):
     q = np.zeros((len(y), 2, 2))
     assigned = np.zeros(len(y), int)
+    halves = []
     for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=27183).split(
         np.zeros(len(tr)), y[tr], groups[tr]
     ):
@@ -49,8 +50,10 @@ def crossfit_forecast(z, y, groups, tr, va):
         assert not set(groups[fit]) & set(groups[query])
         q[query] = fit_forecast(z, fit, query)
         assigned[query] += 1
+        halves.append(fit)
     assert not set(groups[tr]) & set(groups[va])
-    q[va] = fit_forecast(z, tr, va)
+    # Validation rows average the two half models, the fit size the training rows saw.
+    q[va] = np.mean([fit_forecast(z, h, va) for h in halves], axis=0)
     assigned[va] += 1
     assert (assigned == 1).all()
     actual = z["target"][:, 3, :]

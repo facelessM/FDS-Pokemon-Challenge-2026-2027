@@ -251,7 +251,11 @@ def action_score(st, known):
 
 def accuracy(move):
     value = move.get("accuracy", 100)
-    return 1.0 if isinstance(value, bool) or not value else min(float(value) / 100, 1.0)
+    if isinstance(value, bool) or not value:
+        return 1.0
+    # The data stores accuracy as a fraction (1.0, 0.85, ...), not a percentage.
+    value = float(value)
+    return min(value if value <= 1 else value / 100, 1.0)
 
 
 class BattleMatrices:

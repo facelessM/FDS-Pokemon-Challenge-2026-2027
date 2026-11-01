@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.base_features import move_effect_features
-from src.coverage import alive
+from src.coverage import accuracy, alive
 from src.move_records import MoveRecords
 from src.observations import describe, observation_features
 from src.species import snapshots
@@ -76,6 +76,12 @@ class RecordedState(unittest.TestCase):
         view = describe(battle())
         view["states"]["p2"]["g"] = state("g", 0, "fnt")
         self.assertEqual(alive(view, "p2", ["g", "h"]), ["h"])
+
+    def test_move_accuracy_is_read_as_a_fraction(self):
+        self.assertEqual(accuracy({"accuracy": 1.0}), 1.0)
+        self.assertAlmostEqual(accuracy({"accuracy": 0.85}), 0.85)
+        self.assertAlmostEqual(accuracy({"accuracy": 85}), 0.85)
+        self.assertEqual(accuracy({"accuracy": True}), 1.0)
 
     def test_prefix_inputs_cannot_see_later_rows(self):
         b = battle()
