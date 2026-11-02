@@ -106,6 +106,16 @@ To submit that predictor, we kept the 8,000-row training folds and gave each tes
 
 The main cleanup changed organization, not the selected prediction rule. All fifteen fold ensembles were trained again. Every component probability, the combined OOF and test probabilities, and the final 5,000-row CSV matched exactly. Nine regression tests passed. This verifies reproduction; the 0.7103 result remains a development estimate selected after many experiments on the same battles.
 
+## 17 Late momentum, boost scaling, soft roster completion and full bagging trials
+
+We subsequently evaluated three candidate directions aimed at addressing tactical momentum and Player 2 unrevealed roster uncertainty:
+
+1. **Effective HP and Late-Prefix Momentum:** We evaluated exact Gen 2 stat multipliers stages(s) on Defense and Special Defense, complete setup move tracking (Curse, Swords Dance, Growth, Belly Drum, Agility, Amnesia), and late-prefix switch counts and damage taken (turns 20–30) in resources() and switches(). On Fold 0, accuracy rose from 0.7155 to 0.7160. Across all 10,000 battles across the 15 folds, averaged OOF accuracy was 0.7108 (+0.0005 over the 0.7103 reference, +5 net correct battles) with log loss improving from 0.55301 to 0.55284. Because the gain (+0.0005) fell within random sampling variance and failed the replacement guard, the production entry point was kept in its clean, frozen state.
+2. **Soft Roster Completion:** We tested continuous imputation of Player 2 unrevealed rosters using an empirical co-occurrence matrix and Gram partner substitutability (S = C_norm @ C_norm.T). On Fold 0, accuracy dropped from 0.7155 to 0.7130 (-0.0025). The continuous imputation removes the clean categorical threshold boundary that tree-based models leverage to isolate battles with unobserved opponents. The mathematical formulation was retained offline in analysis/cooccurrence_analysis.py.
+3. **Variance Weighting and Non-Linear Aggregation:** Using out-of-fold probability distributions, we evaluated Gauss-Markov inverse-Brier weighting, Bernoulli uncertainty weighting, trimmed mean, and median voting in analysis/confidence_variance_study.py. Robust non-linear aggregations reduced accuracy (median voting scored 0.7040 vs 0.7072 equal weighting) by suppressing specialist model signals, while inverse-Brier weights yielded negligible difference (+0.0004). Uniform equal weights were therefore reaffirmed.
+
+Following the frozen reference principle, the production training code was left unchanged and the analytical scripts were preserved in analysis/.
+
 ## Submitted approaches in order
 
 | Order | Approach or file | Development stage |

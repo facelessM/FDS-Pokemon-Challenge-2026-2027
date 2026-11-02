@@ -720,5 +720,33 @@
       "sha256": "73bf813b3c2ba895e1069e96266dc369c06352f6391d5e10e364ad9f8f172969"
     }
   ],
-  "limitation": "These procedures reuse the same training battles. Conditional intervals and new partition seeds do not remove historical feature-selection bias."
+  "limitation": "These procedures reuse the same training battles. Conditional intervals and new partition seeds do not remove historical feature-selection bias.",
+  "momentum_and_bagging_trials": {
+    "scope": "Evaluation of Gen 2 stat multipliers, late momentum features, soft roster completion, and full 15-fold test bagging.",
+    "effective_hp_momentum": {
+      "fold0_accuracy": 0.716,
+      "fold0_baseline": 0.7155,
+      "fifteen_fold_averaged_oof_accuracy": 0.7108,
+      "fifteen_fold_baseline_oof_accuracy": 0.7103,
+      "delta": 0.0005,
+      "net_correct_battles": 5,
+      "averaged_oof_log_loss": 0.55284,
+      "baseline_oof_log_loss": 0.55301,
+      "decision": "Not promoted. Delta (+0.0005) is within sampling variance and fails the replacement guard. Core code kept unchanged."
+    },
+    "soft_roster_completion": {
+      "fold0_accuracy": 0.713,
+      "fold0_baseline": 0.7155,
+      "delta": -0.0025,
+      "decision": "Rejected. Soft continuous imputation removes the clean threshold used by GBDT splits for unobserved rosters. Co-occurrence analysis retained in analysis/cooccurrence_analysis.py."
+    },
+    "variance_and_confidence_weighting": {
+      "equal_weights": 0.7072,
+      "inverse_brier": 0.7076,
+      "trimmed_mean": 0.7047,
+      "median": 0.704,
+      "bernoulli_uncertainty": 0.7053,
+      "decision": "Uniform equal weighting retained. Non-linear aggregation suppresses specialist component signals; variance weighting provides negligible gain. Retained in analysis/confidence_variance_study.py."
+    }
+  }
 }
