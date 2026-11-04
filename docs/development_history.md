@@ -116,6 +116,14 @@ We subsequently evaluated three candidate directions aimed at addressing tactica
 
 Following the frozen reference principle, the production training code was left unchanged and the analytical scripts were preserved in analysis/.
 
+## 18 Decision-quality features
+
+The existing views describe the turn-30 position and how switches turned out, but not whether each player chose sensible moves. We tested whether that adds information: a player who hits into immunities or resistances, ignores a revealed super-effective move, or leaves a Pokémon in against a super-effective threat may also lose more of the unseen remainder.
+
+`experiments/decision_quality.py` scores a choice only when neither side switched between turns t-1 and t, so the player knew the target. A Pokémon's options are the damaging moves it revealed within the 30 turns, a lower bound on its moveset. Per side, and as P1 - P2 differences, the 42 columns give immune, resisted and super-effective rates, avoidable immune hits, missed super-effective options, relative regret against the best revealed move under the `pressure()` proxy, late-window versions, and turns spent in a super-effective threat with and without a resisting teammate. The block uses no outcomes and no turn after 30, so it needs no cross-fitting. It was appended to the four core views and refitted on the cached folds; the raw view was kept from the cached reference. `experiments/store.py` saves each outer fold's features once and `experiments/evaluate.py` refits classifiers on them. Refitting the selected classifiers on that cache gives 0.7098 rather than 0.7103, because one team-record feature occasionally evaluates to about 4e-20 instead of 0, so comparisons use the cached reproduction as the reference.
+
+Qualifying choices are scarce: each side makes about 14 damaging moves in 30 turns, of which about 6 occur with both Pokémon staying in, and immune hits are 1.3% of those. No column had a rank correlation above 0.07 with the outcome. Averaged OOF accuracy moved from 0.7098 to 0.7103 against the cached reproduction (82 fixes, 77 breaks, bootstrap interval -0.0020 to 0.0030), and log loss worsened from 0.55285 to 0.55312. Single views changed by -0.0028 to +0.0014 with worse log loss in all four. The turn-30 state already carries the consequences of earlier choices, and in this switch-heavy format a weaker attack is often deliberate. The block was not adopted.
+
 ## Submitted approaches in order
 
 | Order | Approach or file | Development stage |

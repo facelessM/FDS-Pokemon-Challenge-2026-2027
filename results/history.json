@@ -748,5 +748,34 @@
       "bernoulli_uncertainty": 0.7053,
       "decision": "Uniform equal weighting retained. Non-linear aggregation suppresses specialist component signals; variance weighting provides negligible gain. Retained in analysis/confidence_variance_study.py."
     }
+  },
+  "decision_quality_trial": {
+    "date": "2026-11-05",
+    "hypothesis": "Move-choice quality (immune and resisted hits, missed revealed super-effective options, regret against the best revealed move, staying in against super-effective threats) adds information beyond the turn-30 state.",
+    "protocol": "42 columns from experiments/decision_quality.py appended to the four core views; classifiers refitted on the cached grouped partitions 20261026, 20261105 and 193; raw view kept from the cached reference. Choices scored only when neither side switched.",
+    "max_abs_spearman": 0.067,
+    "averaged_oof_accuracy": 0.7103,
+    "cached_reference_accuracy": 0.7098,
+    "accuracy_gain": 0.0005,
+    "interval95": [
+      -0.002,
+      0.003
+    ],
+    "fixes": 82,
+    "breaks": 77,
+    "repeat_accuracies": [
+      0.7065,
+      0.7054,
+      0.7058
+    ],
+    "averaged_oof_log_loss": 0.553119,
+    "cached_reference_log_loss": 0.55285,
+    "single_view_gains": {
+      "baseline": 0.0011,
+      "species_forecast": -0.0014,
+      "tactical": 0.0014,
+      "zero_power": -0.0028
+    },
+    "decision": "Not adopted. Gain within run-to-run noise and log loss worse for the blend and every view."
   }
 }
