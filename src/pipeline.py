@@ -19,6 +19,7 @@ from . import features, raw, state
 from .data import load_type_chart
 from .forecast import CATS
 from .models import lgbm_final, xgb_final
+from .options import FEATURE_FIXES
 from .observations import describe, load, observation_features
 from .species import snapshots
 from .validation import COMPONENTS, N_FOLDS, SEEDS, THRESHOLD, blend, folds, route
@@ -54,6 +55,7 @@ def signature(data, mode):
     ]
     detail = {
         "mode": mode,
+        "feature_fixes": FEATURE_FIXES,
         "data_sha256": {p.name: digest(p) for p in files},
         "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in code},
         "versions": {name: importlib.metadata.version(name) for name in PACKAGES},
@@ -283,6 +285,7 @@ def run_folds(data, output, mode, jobs):
                     "--worker",
                     str(seed),
                     str(fold),
+                    *(["--feature-fixes"] if FEATURE_FIXES else []),
                 ]
                 child = subprocess.Popen(
                     command, stdout=stream, stderr=subprocess.STDOUT
@@ -377,7 +380,8 @@ def collect(data, output, mode):
         )
         assert len(submission) == len(ids) and submission.battle_id.is_unique
         assert not submission.isna().any().any()
-        path = output / "submission_matched_core_summary.csv"
+        name = "five_view_fixed" if FEATURE_FIXES else "matched_core_summary"
+        path = output / f"submission_{name}.csv"
         submission.to_csv(path, index=False)
         save_npz(
             output / "test_probabilities.npz",

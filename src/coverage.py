@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from functools import lru_cache
 import numpy as np
 from .tactics import TacticalContext, stage
+from .options import FEATURE_FIXES
 
 BOOM = {"explosion", "selfdestruct"}
 COPY = {"mimic", "metronome", "transform", "sketch"}
@@ -251,7 +252,13 @@ def action_score(st, known):
 
 def accuracy(move):
     value = move.get("accuracy", 100)
-    return 1.0 if isinstance(value, bool) or not value else min(float(value) / 100, 1.0)
+    if isinstance(value, bool) or not value:
+        return 1.0
+    value = float(value)
+    if FEATURE_FIXES and value <= 1:
+        # The data stores accuracy as a fraction (1.0, 0.85, ...), not a percentage.
+        return value
+    return min(value / 100, 1.0)
 
 
 class BattleMatrices:

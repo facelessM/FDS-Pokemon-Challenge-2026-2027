@@ -1,7 +1,8 @@
 """Construct each feature view using the outer training fold.
 
 Training rows receive records and auxiliary estimates from inner held-out groups.
-Validation and test rows use estimators fitted on the whole outer training fold.
+Validation and test rows use estimators fitted on the whole outer training fold, or,
+with FEATURE_FIXES, the average of the inner estimators (see src/options.py).
 """
 
 from collections import Counter
@@ -19,6 +20,7 @@ from . import coverage as tf
 from .species import vocabulary, species_features, matrix
 from .forecast import crossfit_forecast
 from .pressure import damage_samples, fit_power, EmpiricalTactics
+from .options import FEATURE_FIXES
 
 BASE_GROUPS = [
     "starter",
@@ -52,8 +54,17 @@ def encodings(train_views, y, groups, target_views):
         part.index = b
         parts.append(part)
     train = pd.concat(parts).sort_index().astype(np.float32)
-    model = TeamContext(enriched=True, moves=True).fit(train_views, y)
-    valid = model.transform(target_views, "posterior").astype(np.float32)
+    if FEATURE_FIXES:
+        outs = []
+        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
+            np.zeros(len(y)), y, groups
+        ):
+            model = TeamContext(enriched=True, moves=True).fit(subset(train_views, a), y[a])
+            outs.append(model.transform(target_views, "posterior").astype(np.float32))
+        valid = sum(outs) / len(outs)
+    else:
+        model = TeamContext(enriched=True, moves=True).fit(train_views, y)
+        valid = model.transform(target_views, "posterior").astype(np.float32)
     return {"post": train}, {"post": valid}
 
 
@@ -87,6 +98,22 @@ def fold_features(battles, views, y, groups, tr, va, chart, static):
     return dict(train=left, valid=right, tr=tr, va=va, ytr=y[tr], yva=y[va])
 
 
+def calibrate_p2(p, M, source, tr):
+    """P2 knockouts are mostly unrecorded, so the model learns P1 knockouts only.
+    Shift P2 scores on the logit scale until the training fold expects as many
+    P2 knockouts per battle as P1 has recorded ones."""
+    in_tr = M.battle.isin(tr).to_numpy()
+    target_rate = M.loc[source, "target"].sum() / len(tr)
+    p2 = (M.side == "p2").to_numpy()
+    logit = np.log(np.clip(p, 1e-6, 1 - 1e-6) / np.clip(1 - p, 1e-6, 1))
+    lo, hi = -10.0, 10.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        rate = (1 / (1 + np.exp(-(logit[p2 & in_tr] + mid)))).sum() / len(tr)
+        lo, hi = (mid, hi) if rate < target_rate else (lo, mid)
+    return np.where(p2, 1 / (1 + np.exp(-(logit + (lo + hi) / 2))), p)
+
+
 def matrices(context, tr, va):
     """Combine recorded state, team records, recovery and uncertain departures."""
     B, V, y, groups, chart = (
@@ -111,9 +138,24 @@ def matrices(context, tr, va):
         query = M.battle.isin(tr[b])
         est = auxiliary_model().fit(X.loc[fit], M.loc[fit, "target"])
         p[query] = est.predict_proba(X.loc[query])[:, 1]
-    est = auxiliary_model().fit(X.loc[source], M.loc[source, "target"])
     query = M.battle.isin(va)
-    p[query] = est.predict_proba(X.loc[query])[:, 1]
+    if FEATURE_FIXES:
+        halves = []
+        for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=347).split(
+            np.zeros(len(tr)), y[tr], groups[tr]
+        ):
+            fit = M.battle.isin(tr[a]) & (M.side == "p1")
+            halves.append(auxiliary_model().fit(X.loc[fit], M.loc[fit, "target"]))
+        p[query] = np.mean([e.predict_proba(X.loc[query])[:, 1] for e in halves], axis=0)
+        p = calibrate_p2(p, M, source, tr)
+    else:
+        est = auxiliary_model().fit(X.loc[source], M.loc[source, "target"])
+        p[query] = est.predict_proba(X.loc[query])[:, 1]
+    # Knockout risk per battle and P2 species, used by the tactical view.
+    riskmap = [dict() for _ in range(len(B))]
+    for index, row in M[M.side == "p2"].iterrows():
+        riskmap[int(row.battle)][row.species] = float(p[index])
+    context["riskmap"] = riskmap
     top = [
         name
         for name, count in Counter(
@@ -130,8 +172,17 @@ def matrices(context, tr, va):
         z = est.transform([V[i] for i in tr[b]])
         z.index = tr[b]
         parts.append(z)
-    est = MoveRecords().fit([V[i] for i in tr], y[tr])
-    z = est.transform([V[i] for i in va])
+    if FEATURE_FIXES:
+        outs = []
+        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
+            np.zeros(len(tr)), y[tr], groups[tr]
+        ):
+            est = MoveRecords().fit([V[i] for i in tr[a]], y[tr[a]])
+            outs.append(est.transform([V[i] for i in va]))
+        z = sum(outs) / len(outs)
+    else:
+        est = MoveRecords().fit([V[i] for i in tr], y[tr])
+        z = est.transform([V[i] for i in va])
     z.index = va
     parts.append(z)
     extra["sets"] = pd.concat(parts).sort_index()
@@ -193,11 +244,25 @@ def additional(context, prefixes, tr, va, A, Z):
         assert not set(groups[tr[a]]) & set(groups[tr[b]])
         power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, tr[a])))
         which[tr[b]] = len(power) - 1
-    power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, tr)))
-    which[va] = len(power) - 1
-    pressure = numeric(
-        [power[which[i]].threat_features(b, v) for i, (b, v) in enumerate(zip(B, V))]
-    )
+    if FEATURE_FIXES:
+
+        def pressure_row(i, b, v):
+            # Rows outside the training fold average the two half models.
+            if which[i] >= 0:
+                return power[which[i]].threat_features(b, v)
+            parts = [h.threat_features(b, v) for h in power]
+            return {
+                c: (parts[0].get(c, 0.0) + parts[1].get(c, 0.0)) / 2
+                for c in set(parts[0]) | set(parts[1])
+            }
+
+        pressure = numeric([pressure_row(i, b, v) for i, (b, v) in enumerate(zip(B, V))])
+    else:
+        power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, tr)))
+        which[va] = len(power) - 1
+        pressure = numeric(
+            [power[which[i]].threat_features(b, v) for i, (b, v) in enumerate(zip(B, V))]
+        )
     top_species, _ = vocabulary(fitV)
     species = matrix([species_features(v, top_species) for v in V])
     forecast, _ = crossfit_forecast(prefixes, y, groups, tr, va)
@@ -218,9 +283,24 @@ def additional(context, prefixes, tr, va, A, Z):
     risks[tr] = A[riskcols].to_numpy()
     risks[va] = Z[riskcols].to_numpy()
     output = {}
+    training = set(int(i) for i in tr)
     for i, (b, v) in enumerate(zip(B, V)):
-        risk = {c[len("ko_p2_risk_") :]: float(q) for c, q in zip(riskcols, risks[i])}
-        parts = tactical_joint(tc, tables[which[i]], b, v, risk)
+        if FEATURE_FIXES:
+            # Every P2 species with departure evidence, not only the common ones.
+            risk = dict(context["riskmap"][i])
+        else:
+            risk = {c[len("ko_p2_risk_") :]: float(q) for c, q in zip(riskcols, risks[i])}
+        if FEATURE_FIXES and i not in training:
+            halves = [tactical_joint(tc, tables[k], b, v, risk) for k in (1, 2)]
+            parts = {
+                name: {
+                    c: (halves[0][name][c] + halves[1][name].get(c, 0.0)) / 2
+                    for c in halves[0][name]
+                }
+                for name in halves[0]
+            }
+        else:
+            parts = tactical_joint(tc, tables[which[i]], b, v, risk)
         for name, f in parts.items():
             output.setdefault(name, []).append(f)
     tactical = {n: numeric(rows) for n, rows in output.items()}
