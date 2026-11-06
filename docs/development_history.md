@@ -1,6 +1,6 @@
 # Development history
 
-We started with team averages, moved to the observed battle state, and then tested which information that representation was losing. Some additions became part of the selected model. Others were useful checks but did not justify a replacement. The final improvement came from combining different representations and matching the submission procedure to the evaluated predictor.
+We started with team averages, moved to the observed battle state, and then tested which information that representation was losing. Some additions became part of the selected model. Others were useful checks but did not justify a replacement. The largest late improvement came from combining different representations and matching the submission procedure to the evaluated predictor. We then corrected four feature bugs and added a small second stage for two signals the trees used poorly.
 
 The numerical record is in [history.json](../results/history.json). The current method is described in [methodology.md](methodology.md). Earlier executable code remains in the [checkpoint before the main cleanup](https://github.com/facelessM/FDS-Pokemon-Challenge-2026-2027/tree/f4c233b8e9523779b3a29c8eec1e3d229323f158).
 
@@ -116,6 +116,53 @@ We subsequently evaluated three candidate directions aimed at addressing tactica
 
 Following the frozen reference principle, the production training code was left unchanged and the analytical scripts were preserved in analysis/.
 
+## 18 Feature corrections
+
+A code audit of the five-view model found four problems in the feature code:
+
+1. Move accuracy was stored as a fraction but divided by 100 again, so every attack in the coverage features was weighted by about 0.01.
+2. The P2 knockout model is trained on recorded P1 knockouts and transferred to P2. Its raw scores predicted 0.67 P2 knockouts per battle against about 1.06 expected, so we shift its logit until the predicted count matches.
+3. Knockout risk in the coverage features was computed only for the 12 most common species. It now covers every P2 species.
+4. Inner estimators gave validation rows a prediction from one model fitted on part of the training fold, while training rows got cross-fitted values. Validation and test rows now average the inner models, so all rows see estimators of the same size.
+
+With all four fixes, the separate partitions score 0.7069, 0.7073 and 0.7086 (mean 0.7076, against 0.7060). Averaged OOF accuracy is 0.7100 against 0.7103, and log loss improves from 0.55301 to 0.55273. For every single fix and every combination we tried, the paired interval against the reference included zero, so this is a correctness change, not a measured accuracy gain. The 0.7103 reference was itself the best of many comparisons, so a small drop on the averaged score was expected.
+
+`python run.py predict --feature-fixes` builds this corrected model. Without the switch the code reproduces `submission_matched_core_summary.csv` exactly.
+
+## 19 Second stage: similar teams and Spikes
+
+Model-side changes on the corrected model gave nothing: stacking the five views with a logistic regression, other tree counts or depths, column subsampling, a linear sixth view, dropping 63 off-format battles, importance pruning and label-noise filtering all stayed within noise or lost accuracy.
+
+A residual scan did find two signals the trees used poorly:
+
+* **Similar-team records.** Exact team matches are rare, so we also count near matches. For P1, every known team sharing at least four species votes with weight 4^(shared - 6). For P2, a known team votes if it contains all revealed P2 species but at most one, with weight 4^(-missing), when at least three are revealed. Rates are smoothed with 5 pseudo-battles and cross-fitted with the same inner splits as the team records. The P1 rate correlates 0.049 with the residual of the five-view model, against about 0.02 for noise. Added inside the tree views it cost 0.13 points on partition 193.
+* **Spikes still down at turn 30.** Spikes goes on the opponent's side, and Rapid Spin removes it from the user's side unless the target is a Ghost. Spikes stuck on P1's side gives P1 a 40.3% win rate, on P2's side 58.9%.
+
+Both work better as inputs to a small logistic regression on top of the trees than inside them. The second stage takes logit(tree probability) and the signals and is fitted on the stacked out-of-fold rows of the three partitions. Its CV comes from a nested grouped 5-fold split over those rows.
+
+| Base model | Signals | Mean partition accuracy | Averaged OOF accuracy | Log loss | Public |
+|---|---|---:|---:|---:|---:|
+| Corrected five views | none | 0.7076 | 0.7100 | 0.55273 | 0.69333 |
+| Corrected five views | similar teams | 0.7080 | 0.7118 | 0.55052 | 0.70200 |
+| Corrected tactical view alone | none | 0.7066 | 0.7076 | 0.55077 | |
+| Corrected tactical view alone | similar teams, Spikes | 0.7077 | 0.7085 | 0.54975 | 0.70000 |
+| Original five views | similar teams, Spikes | 0.7080 | 0.7092 | 0.55056 | |
+| Original tactical view | similar teams, Spikes | 0.7057 | 0.7100 | 0.55026 | 0.69600 |
+
+The similar-team stage fixes 18 more battles than the corrected five views, with a paired interval of -0.07 to +0.42 points. The tactical row is the simpler result: one view with two extra signals matches the corrected five-view ensemble on mean partition accuracy (0.7077 against 0.7076), is 0.15 points lower on averaged OOF accuracy and has the lowest log loss. A last round of ten add-on signals (Spikes pressure, spinners alive, phazing, similar-team counts and interactions) stayed within 0.06 points.
+
+## 20 Final selection
+
+The public leaderboard scores 1,500 test battles, so its scores carry about ±1.2 points of noise, and the differences between our late candidates are smaller than that. We chose three submissions that differ in method rather than the three highest public scores:
+
+| Submission | Method | Averaged OOF accuracy | Public |
+|---|---|---:|---:|
+| `submission_matched_core_summary.csv` | Original five views | 0.7103 | 0.70466 |
+| `submission_team_similarity.csv` | Corrected five views + similar-team stage | 0.7118 | 0.70200 |
+| `submission_tactical_team_spikes.csv` | Corrected tactical view + similar teams and Spikes | 0.7085 | 0.70000 |
+
+A five-view version with both signals was submitted after the deadline and scored 0.69866. [selected_submissions.json](../results/selected_submissions.json) lists the command and SHA-256 of each selected file.
+
 ## Submitted approaches in order
 
 | Order | Approach or file | Development stage |
@@ -129,5 +176,9 @@ Following the frozen reference principle, the production training code was left 
 | 7 | `submission_species_forecast.csv` | Species state and five-turn forecasts |
 | 8 | `submission_tactical_coverage.csv` | Move hypotheses and defensive coverage |
 | 9 | `submission_matched_core_summary.csv` | Five views with matching three-partition prediction |
+| 10 | Corrected five views | Four feature corrections |
+| 11 | `submission_team_similarity.csv` | Similar-team second stage |
+| 12 | Original tactical view with similar teams and Spikes | Second stage on the original run |
+| 13 | `submission_tactical_team_spikes.csv` | Similar teams and Spikes on the corrected tactical view |
 
-Further experiments should extend this record with their hypothesis, evaluation procedure, result and decision. The selected training entry point remains separate from the experiment history.
+The selected training entry point remains separate from the experiment history.

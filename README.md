@@ -3,13 +3,18 @@
 **Pokémon battle outcome prediction** · Foundations of Data Science, Sapienza Università di Roma, 2026/2027
 
 We predict whether Player 1 wins from its team, Player 2's lead and the first
-30 turns of a Gen 2 OU battle. Our selected model averages five feature views
-across three grouped CV partitions. Averaging the three out-of-fold probabilities
-before classification gives **0.7103 accuracy** on the 10,000 training battles.
-The earlier state model scores **0.7026** under the same averaging rule.
+30 turns of a Gen 2 OU battle. Our models average five feature views across
+three grouped CV partitions, and two of them add a small logistic regression
+for similar-team records and Spikes.
 
-These battles were also used to compare candidates. The CV result is a development
-estimate, not a new independent holdout score.
+| Selected submission | Averaged OOF accuracy | Public score |
+|---|---:|---:|
+| `submission_matched_core_summary.csv`: five views | 0.7103 | 0.70466 |
+| `submission_team_similarity.csv`: corrected five views + similar teams | 0.7118 | 0.70200 |
+| `submission_tactical_team_spikes.csv`: corrected tactical view + similar teams and Spikes | 0.7085 | 0.70000 |
+
+These battles were also used to compare candidates, so the CV results are
+development estimates, not independent holdout scores.
 
 ## Team
 
@@ -39,10 +44,12 @@ We keep the earlier submissions and unsuccessful experiments in the
 | Species and forecasts | Species HP/status and five-turn changes | 0.7036 |
 | Tactical coverage | Move hypotheses and remaining defensive answers | 0.7051 |
 | Matched five-view mixture | Three OOF probabilities averaged per battle | **0.7103** |
+| Corrected features | Four feature-code fixes | 0.7100 |
+| Similar-team stage | Logistic regression on the corrected mixture | **0.7118** |
 
 The first seven rows use the original seed-42 CV. The next three are means of
-three grouped partitions. The final row scores averaged OOF probabilities, whose
-separate-partition mean is 0.7060. These are historical milestones with different
+three grouped partitions. The last three score averaged OOF probabilities; their
+separate-partition means are 0.7060, 0.7076 and 0.7080. These are historical milestones with different
 evaluation procedures, not one directly comparable score series. The team-record
 row is after its tie-breaking fix; its earlier submitted file used the previous version.
 
@@ -79,6 +86,17 @@ use a fixed hash. This preserves the evaluated training size and number of
 predictions per battle. We do not average all fifteen fold ensembles or refit
 the winner classifiers on all 10,000 rows.
 
+**Feature corrections.** `--feature-fixes` corrects the move accuracy scale,
+calibrates the transferred P2 knockout scores, computes knockout risk for every
+P2 species and gives validation rows inner estimators of the same size as
+training rows. Without it the code reproduces the original submission exactly.
+
+**Second stage.** A logistic regression takes the logit of the tree probability
+and the win rates of similar P1 and P2 teams, optionally with whether Spikes is
+still down on each side at turn 30. It is fitted on the out-of-fold rows of the
+three partitions. Applied to the tactical view alone, it scores about as well as the
+corrected five-view mixture (mean partition accuracy 0.7077 against 0.7076).
+
 [Methodology](docs/methodology.md) explains the features, approximations, inner
 splits and results. [Reference results](results/reference.json) record the
 expected metrics and prediction hashes.
@@ -91,19 +109,29 @@ files in `data/`: `train.jsonl`, `test.jsonl`, `sample_submission.csv` and
 
 ```bash
 python -m pip install -r requirements.txt
-python run.py predict --data data --jobs 2
+
+# 1. Original five views
+python run.py predict --output outputs/original
+
+# 2. Corrected five views, then the similar-team stage
+python run.py predict --feature-fixes --output outputs/fixed
+python run.py stage --output outputs/fixed --view blend --signals team --name team_similarity
+
+# 3. Corrected tactical view with similar teams and Spikes (reuses run 2)
+python run.py stage --output outputs/fixed --view tactical --signals team,spikes --name tactical_team_spikes
 ```
 
-This builds every feature from the competition files, trains all fifteen fold
-ensembles, evaluates OOF predictions and writes
-`outputs/predict/submission_matched_core_summary.csv`. The folder also contains
-per-fold probabilities, logs and `metrics.json`. Two workers are the default;
-use `--jobs 1` if memory is limited. This is a full training run, not a quick demo.
+Each `predict` builds every feature from the competition files, trains all
+fifteen fold ensembles, evaluates OOF predictions and writes a submission plus
+per-fold probabilities, logs and `metrics.json`. It takes about four hours on
+two cores. `stage` takes a few minutes. The expected SHA-256 of each file is in
+[selected_submissions.json](results/selected_submissions.json). Two workers are
+the default; use `--jobs 1` if memory is limited.
 
 To run CV without loading the test set:
 
 ```bash
-python run.py cv --data data --jobs 2
+python run.py cv --jobs 2
 python -m unittest discover -s tests -v
 ```
 
@@ -112,7 +140,7 @@ package versions match. Use a new `--output` directory after changing any of
 them. To rebuild the CSV and metrics from completed folds:
 
 ```bash
-python run.py collect --data data --output outputs/predict
+python run.py collect --output outputs/original
 ```
 
 ## Code layout
@@ -121,6 +149,7 @@ python run.py collect --data data --output outputs/predict
 - `src/pipeline.py` prepares inputs, runs folds and writes predictions.
 - `src/validation.py` holds splits, routing, weights and the threshold.
 - `src/features.py` assembles the four core views and their inner estimates.
+- `src/options.py` holds the `--feature-fixes` switch; `src/second_stage.py` fits the similar-team and Spikes stage.
 - The other `src/` modules contain the corresponding feature calculations.
 - `notebooks/kaggle.ipynb` clones this repository and runs the same entry point.
 
