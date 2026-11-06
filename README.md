@@ -123,8 +123,8 @@ python run.py stage --output outputs/fixed --view tactical --signals team,spikes
 
 Each `predict` builds every feature from the competition files, trains all
 fifteen fold ensembles, evaluates OOF predictions and writes a submission plus
-per-fold probabilities, logs and `metrics.json`. It takes about four hours on
-two cores. `stage` takes a few minutes. The expected SHA-256 of each file is in
+per-fold probabilities, logs and `metrics.json`. It takes about two and a half
+hours on two cores. `stage` takes a few minutes. The expected SHA-256 of each file is in
 [selected_submissions.json](results/selected_submissions.json). Two workers are
 the default; use `--jobs 1` if memory is limited.
 
