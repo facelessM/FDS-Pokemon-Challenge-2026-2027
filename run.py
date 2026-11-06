@@ -14,6 +14,12 @@ if any(os.environ.get(name) != value for name, value in SETTINGS.items()):
 
 
 def main():
+    """Parse the arguments and run one mode.
+
+    cv and predict build inputs, fit all fifteen folds and collect them;
+    collect rebuilds the outputs from finished folds; stage fits the second
+    stage on a finished predict run. --worker fits a single fold.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["cv", "predict", "collect", "stage"])
     parser.add_argument("--data", type=Path, default=Path("data"))
@@ -25,7 +31,10 @@ def main():
         help="use the corrected features (see src/options.py)",
     )
     parser.add_argument(
-        "--view", choices=["blend", "tactical"], default="blend", help="stage: base model"
+        "--view",
+        choices=["blend", "tactical"],
+        default="blend",
+        help="stage: base model",
     )
     parser.add_argument("--signals", default="team", help="stage: team or team,spikes")
     parser.add_argument("--name", help="stage: submission file name")
@@ -42,7 +51,13 @@ def main():
         from src.second_stage import run
 
         output = (args.output or Path("outputs") / "predict").resolve()
-        run(data, output, args.view, args.signals, args.name or f"{args.view}_{args.signals}")
+        run(
+            data,
+            output,
+            args.view,
+            args.signals,
+            args.name or f"{args.view}_{args.signals}",
+        )
         return
     if args.mode == "collect":
         from src.pipeline import read_pickle

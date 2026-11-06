@@ -1,26 +1,35 @@
-"""Construct each feature view using the outer training fold.
+"""Build the feature views for one outer fold.
 
-Training rows receive records and auxiliary estimates from inner held-out groups.
-Validation and test rows use estimators fitted on the whole outer training fold, or,
-with FEATURE_FIXES, the average of the inner estimators (see src/options.py).
+Everything learned from data (vocabularies, records, auxiliary models) is fitted
+on the outer training rows only. Training rows get their record and auxiliary
+values from inner splits, so no row sees an estimate fitted on its own battle.
+Validation and test rows get the estimate fitted on the whole training fold or,
+with FEATURE_FIXES, the average of the inner estimates (see src/options.py).
+
+Naming: `train_rows` and `query_rows` index the battles of the fold (query rows
+are the validation battles followed by the routed test battles). `train_X` and
+`query_X` are the matching feature tables.
 """
 
 from collections import Counter
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
-from .data import build_species_table, build_move_vocab, build_top_species
+
+from . import coverage
+from . import state
 from .base_features import build_features
-from .team_context import TeamContext
-from .tactics import TacticalContext
-from .move_records import MoveRecords
-from .knockouts import make_events, model as auxiliary_model, aggregate
-from . import state as deep
-from . import coverage as tf
-from .species import vocabulary, species_features, matrix
+from .data import build_move_vocab, build_species_table, build_top_species
 from .forecast import crossfit_forecast
-from .pressure import damage_samples, fit_power, EmpiricalTactics
+from .knockouts import aggregate, make_events
+from .knockouts import model as knockout_model
+from .move_records import MoveRecords
 from .options import FEATURE_FIXES
+from .pressure import EmpiricalTactics, damage_samples, fit_power
+from .species import matrix, species_features, vocabulary
+from .tactics import TacticalContext
+from .team_context import TeamContext
 
 BASE_GROUPS = [
     "starter",
@@ -30,6 +39,12 @@ BASE_GROUPS = [
     "move_effects",
     "alive_species",
 ]
+TACTICAL_GROUPS = ["identity", "tempo", "coverage", "trades", "hazard", "progress"]
+
+# Seeds of the inner splits. Records use five folds, auxiliary models two.
+RECORD_SEED = 99
+KNOCKOUT_SEED = 347
+RESPONSE_SEED = 41071
 
 
 def subset(values, indices):
@@ -37,186 +52,206 @@ def subset(values, indices):
 
 
 def numeric(rows):
+    """Feature dicts to a float32 table; a key missing in a row means 0."""
     frame = pd.DataFrame(rows).fillna(0).astype(np.float32)
     assert np.isfinite(frame.to_numpy()).all()
     return frame
 
 
-def encodings(train_views, y, groups, target_views):
-    """Build posterior team records without a battle's own outcome."""
-    parts = []
-    for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
-        np.zeros(len(y)), y, groups
-    ):
-        assert not set(groups[a]) & set(groups[b])
-        model = TeamContext(enriched=True, moves=True).fit(subset(train_views, a), y[a])
-        part = model.transform(subset(train_views, b), "posterior")
-        part.index = b
+def inner_splits(rows, y, groups, n_splits, seed):
+    """Grouped stratified split of the training rows into (fit, held-out) parts."""
+    split = StratifiedGroupKFold(n_splits, shuffle=True, random_state=seed)
+    for a, b in split.split(np.zeros(len(rows)), y[rows], groups[rows]):
+        assert not set(groups[rows[a]]) & set(groups[rows[b]])
+        yield rows[a], rows[b]
+
+
+def team_records(train_views, y, groups, query_views):
+    """Team records (src/team_context.py) without a battle's own outcome."""
+    rows = np.arange(len(y))
+    parts, inner = [], []
+    for fit, held in inner_splits(rows, y, groups, 5, RECORD_SEED):
+        model = TeamContext(enriched=True, moves=True).fit(
+            subset(train_views, fit), y[fit]
+        )
+        part = model.transform(subset(train_views, held), "posterior")
+        part.index = held
         parts.append(part)
+        inner.append(model)
     train = pd.concat(parts).sort_index().astype(np.float32)
     if FEATURE_FIXES:
-        outs = []
-        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
-            np.zeros(len(y)), y, groups
-        ):
-            model = TeamContext(enriched=True, moves=True).fit(subset(train_views, a), y[a])
-            outs.append(model.transform(target_views, "posterior").astype(np.float32))
-        valid = sum(outs) / len(outs)
+        outs = [m.transform(query_views, "posterior").astype(np.float32) for m in inner]
+        query = sum(outs) / len(outs)
     else:
         model = TeamContext(enriched=True, moves=True).fit(train_views, y)
-        valid = model.transform(target_views, "posterior").astype(np.float32)
-    return {"post": train}, {"post": valid}
+        query = model.transform(query_views, "posterior").astype(np.float32)
+    return train, query
 
 
-def fold_features(battles, views, y, groups, tr, va, chart, static):
-    bt = subset(battles, tr)
-    vt = subset(views, tr)
-    vv = subset(views, va)
+def first_features(battles, views, y, groups, train_rows, query_rows, chart, static):
+    """The first feature blocks: turn-30 state, moves, species and team records."""
+    train_battles = subset(battles, train_rows)
+    train_views = subset(views, train_rows)
     context = {
-        "species_table": build_species_table(bt),
-        "move_vocab": build_move_vocab(bt),
-        "top_species": build_top_species(bt),
+        "species_table": build_species_table(train_battles),
+        "move_vocab": build_move_vocab(train_battles),
+        "top_species": build_top_species(train_battles),
     }
-    # No outcomes occur in these numeric features or in TacticalContext's outputs.
+    # These blocks use no outcomes, so they are computed for all rows at once.
     base = (
         build_features(battles, BASE_GROUPS, context)
         .drop(columns="battle_id")
         .astype(np.float32)
     )
-    left = {k: v.iloc[tr].reset_index(drop=True) for k, v in static.items()}
-    right = {k: v.iloc[va].reset_index(drop=True) for k, v in static.items()}
-    left["base"] = base.iloc[tr].reset_index(drop=True)
-    right["base"] = base.iloc[va].reset_index(drop=True)
-    e1, e2 = encodings(vt, y[tr], groups[tr], vv)
-    left.update(e1)
-    right.update(e2)
-    tactical = TacticalContext().fit(bt, vt, chart, context["top_species"])
-    for name, func in [("threat", tactical.threat_features)]:
-        feat = numeric([func(b, v) for b, v in zip(battles, views)])
-        left[name] = feat.iloc[tr].reset_index(drop=True)
-        right[name] = feat.iloc[va].reset_index(drop=True)
-    return dict(train=left, valid=right, tr=tr, va=va, ytr=y[tr], yva=y[va])
+    tactical = TacticalContext().fit(
+        train_battles, train_views, chart, context["top_species"]
+    )
+    threat = numeric([tactical.threat_features(b, v) for b, v in zip(battles, views)])
+    blocks = {"base": base, **static, "threat": threat}
+
+    def rows(frame, index):
+        return frame.iloc[index].reset_index(drop=True)
+
+    train = {name: rows(frame, train_rows) for name, frame in blocks.items()}
+    query = {name: rows(frame, query_rows) for name, frame in blocks.items()}
+    train["post"], query["post"] = team_records(
+        train_views, y[train_rows], groups[train_rows], subset(views, query_rows)
+    )
+    return train, query
 
 
-def calibrate_p2(p, M, source, tr):
-    """P2 knockouts are mostly unrecorded, so the model learns P1 knockouts only.
-    Shift P2 scores on the logit scale until the training fold expects as many
-    P2 knockouts per battle as P1 has recorded ones."""
-    in_tr = M.battle.isin(tr).to_numpy()
-    target_rate = M.loc[source, "target"].sum() / len(tr)
-    p2 = (M.side == "p2").to_numpy()
+def calibrate_p2(p, events, source, train_rows):
+    """Shift P2 knockout scores so their total matches the recorded P1 rate.
+
+    P2 knockouts are mostly unrecorded, so the model learns from P1 knockouts
+    only. We shift P2 scores on the logit scale until the training fold expects
+    as many P2 knockouts per battle as P1 has recorded ones.
+    """
+    in_train = events.battle.isin(train_rows).to_numpy()
+    target_rate = events.loc[source, "target"].sum() / len(train_rows)
+    p2 = (events.side == "p2").to_numpy()
     logit = np.log(np.clip(p, 1e-6, 1 - 1e-6) / np.clip(1 - p, 1e-6, 1))
     lo, hi = -10.0, 10.0
-    for _ in range(60):
+    for _ in range(60):  # bisection on the shift
         mid = (lo + hi) / 2
-        rate = (1 / (1 + np.exp(-(logit[p2 & in_tr] + mid)))).sum() / len(tr)
+        rate = (1 / (1 + np.exp(-(logit[p2 & in_train] + mid)))).sum() / len(train_rows)
         lo, hi = (mid, hi) if rate < target_rate else (lo, mid)
     return np.where(p2, 1 / (1 + np.exp(-(logit + (lo + hi) / 2))), p)
 
 
-def matrices(context, tr, va):
-    """Combine recorded state, team records, recovery and uncertain departures."""
-    B, V, y, groups, chart = (
-        context[key] for key in ["battles", "views", "y", "groups", "chart"]
-    )
-    assert not set(groups[tr]) & set(groups[va])
-    base = fold_features(B, V, y, groups, tr, va, chart, context["static"])
-    stats = deep.stats_context([B[i] for i in tr])
-    extra = {"resources": context["resources"]}
-    for name, fn in [("exits", deep.departures), ("switches", deep.switches)]:
-        extra[name] = numeric([fn(b, v, stats, chart) for b, v in zip(B, V)])
-    X, M = make_events(B, V, stats, chart, include_entry=True)
-    source = M.battle.isin(tr) & (M.side == "p1")
+def knockout_scores(events, X, y, groups, train_rows, query_rows):
+    """Score every departure event with a model trained on recorded P1 knockouts."""
+    source = events.battle.isin(train_rows) & (events.side == "p1")
     for c in ["victim", "attacker", "attack_move", "previous_own_move"]:
         X[c] = pd.Categorical(X[c], categories=sorted(X.loc[source, c].unique()))
-    p = np.zeros(len(M))
-    for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=347).split(
-        np.zeros(len(tr)), y[tr], groups[tr]
-    ):
-        assert not set(groups[tr[a]]) & set(groups[tr[b]])
-        fit = M.battle.isin(tr[a]) & (M.side == "p1")
-        query = M.battle.isin(tr[b])
-        est = auxiliary_model().fit(X.loc[fit], M.loc[fit, "target"])
-        p[query] = est.predict_proba(X.loc[query])[:, 1]
-    query = M.battle.isin(va)
+    p = np.zeros(len(events))
+    halves = []
+    for fit_rows, held_rows in inner_splits(train_rows, y, groups, 2, KNOCKOUT_SEED):
+        fit = events.battle.isin(fit_rows) & (events.side == "p1")
+        held = events.battle.isin(held_rows)
+        model = knockout_model().fit(X.loc[fit], events.loc[fit, "target"])
+        p[held] = model.predict_proba(X.loc[held])[:, 1]
+        halves.append(model)
+    query = events.battle.isin(query_rows)
     if FEATURE_FIXES:
-        halves = []
-        for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=347).split(
-            np.zeros(len(tr)), y[tr], groups[tr]
-        ):
-            fit = M.battle.isin(tr[a]) & (M.side == "p1")
-            halves.append(auxiliary_model().fit(X.loc[fit], M.loc[fit, "target"]))
-        p[query] = np.mean([e.predict_proba(X.loc[query])[:, 1] for e in halves], axis=0)
-        p = calibrate_p2(p, M, source, tr)
+        p[query] = np.mean(
+            [m.predict_proba(X.loc[query])[:, 1] for m in halves], axis=0
+        )
+        p = calibrate_p2(p, events, source, train_rows)
     else:
-        est = auxiliary_model().fit(X.loc[source], M.loc[source, "target"])
-        p[query] = est.predict_proba(X.loc[query])[:, 1]
-    # Knockout risk per battle and P2 species, used by the tactical view.
-    riskmap = [dict() for _ in range(len(B))]
-    for index, row in M[M.side == "p2"].iterrows():
+        model = knockout_model().fit(X.loc[source], events.loc[source, "target"])
+        p[query] = model.predict_proba(X.loc[query])[:, 1]
+    return p
+
+
+def move_records(views, y, groups, train_rows, query_rows):
+    """Species and move-pair records (src/move_records.py), cross-fitted."""
+    parts, inner = [], []
+    for fit, held in inner_splits(train_rows, y, groups, 5, RECORD_SEED):
+        model = MoveRecords().fit(subset(views, fit), y[fit])
+        part = model.transform(subset(views, held))
+        part.index = held
+        parts.append(part)
+        inner.append(model)
+    if FEATURE_FIXES:
+        outs = [m.transform(subset(views, query_rows)) for m in inner]
+        query = sum(outs) / len(outs)
+    else:
+        model = MoveRecords().fit(subset(views, train_rows), y[train_rows])
+        query = model.transform(subset(views, query_rows))
+    query.index = query_rows
+    parts.append(query)
+    return pd.concat(parts).sort_index()
+
+
+def matrices(context, train_rows, query_rows):
+    """The state view: recorded state, team records, recovery and departures.
+
+    Also stores in context["riskmap"] the knockout score of every P2 species in
+    every battle, which the tactical view uses.
+    """
+    battles, views, y, groups, chart = (
+        context[key] for key in ["battles", "views", "y", "groups", "chart"]
+    )
+    assert not set(groups[train_rows]) & set(groups[query_rows])
+    train, query = first_features(
+        battles, views, y, groups, train_rows, query_rows, chart, context["static"]
+    )
+    stats = state.stats_context(subset(battles, train_rows))
+    extra = {"resources": context["resources"]}
+    for name, fn in [("exits", state.departures), ("switches", state.switches)]:
+        extra[name] = numeric([fn(b, v, stats, chart) for b, v in zip(battles, views)])
+
+    X, events = make_events(battles, views, stats, chart, include_entry=True)
+    p = knockout_scores(events, X, y, groups, train_rows, query_rows)
+    riskmap = [dict() for _ in range(len(battles))]
+    for index, row in events[events.side == "p2"].iterrows():
         riskmap[int(row.battle)][row.species] = float(p[index])
     context["riskmap"] = riskmap
-    top = [
-        name
-        for name, count in Counter(
-            name for i in tr for name in V[i]["team"]
-        ).most_common(12)
-    ]
-    extra["entryko"] = aggregate(V, M, p, top)
-    parts = []
-    for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
-        np.zeros(len(tr)), y[tr], groups[tr]
-    ):
-        assert not set(groups[tr[a]]) & set(groups[tr[b]])
-        est = MoveRecords().fit([V[i] for i in tr[a]], y[tr[a]])
-        z = est.transform([V[i] for i in tr[b]])
-        z.index = tr[b]
-        parts.append(z)
-    if FEATURE_FIXES:
-        outs = []
-        for a, b in StratifiedGroupKFold(5, shuffle=True, random_state=99).split(
-            np.zeros(len(tr)), y[tr], groups[tr]
-        ):
-            est = MoveRecords().fit([V[i] for i in tr[a]], y[tr[a]])
-            outs.append(est.transform([V[i] for i in va]))
-        z = sum(outs) / len(outs)
-    else:
-        est = MoveRecords().fit([V[i] for i in tr], y[tr])
-        z = est.transform([V[i] for i in va])
-    z.index = va
-    parts.append(z)
-    extra["sets"] = pd.concat(parts).sort_index()
-    old = ["base", "post", "obs", "threat"]
-    new = ["exits", "resources", "switches", "entryko", "sets"]
-    A = pd.concat(
-        [base["train"][key] for key in old]
-        + [extra[key].iloc[tr].reset_index(drop=True) for key in new],
-        axis=1,
+    common = Counter(name for i in train_rows for name in views[i]["team"])
+    top = [name for name, _ in common.most_common(12)]
+    extra["entryko"] = aggregate(views, events, p, top)
+    extra["sets"] = move_records(views, y, groups, train_rows, query_rows)
+
+    first = ["base", "post", "obs", "threat"]
+    later = ["exits", "resources", "switches", "entryko", "sets"]
+
+    def table(blocks, rows):
+        return pd.concat(
+            [blocks[key] for key in first]
+            + [extra[key].iloc[rows].reset_index(drop=True) for key in later],
+            axis=1,
+        )
+
+    train_X, query_X = table(train, train_rows), table(query, query_rows)
+    assert train_X.columns.is_unique and train_X.columns.equals(query_X.columns)
+    assert (
+        np.isfinite(train_X.to_numpy()).all() and np.isfinite(query_X.to_numpy()).all()
     )
-    Z = pd.concat(
-        [base["valid"][key] for key in old]
-        + [extra[key].iloc[va].reset_index(drop=True) for key in new],
-        axis=1,
-    )
-    assert A.columns.is_unique and A.columns.equals(Z.columns)
-    assert np.isfinite(A.to_numpy()).all() and np.isfinite(Z.to_numpy()).all()
-    assert not {"battle_id", "player_won"} & set(A.columns)
-    return A, Z
+    assert not {"battle_id", "player_won"} & set(train_X.columns)
+    return train_X, query_X
 
 
-def tactical_joint(ctx, table, b, v, risk):
-    scenarios, _, _ = ctx.rosters(v)
-    m = tf.BattleMatrices(ctx, table, b, v, scenarios, modes=["consistent"])
-    parts = {"consistent": tf.threat_features(m, scenarios, "consistent")}
-    parts["identity"] = tf.identity_features(ctx, b, v)
-    parts["tempo"] = tf.active_features(m)
-    parts.update(tf.strategy_features(m, scenarios, tf.hazards(b, ctx), risk))
-    old_b, old_v = tf.prefix_view(b, v)
-    old_m = tf.BattleMatrices(
-        ctx, table, old_b, old_v, scenarios, modes=["consistent"], worlds=False
+def tactical_joint(ctx, table, battle, view, risk):
+    """Coverage, trade, hazard and tempo features of one battle for the tactical view.
+
+    "progress" is the change in coverage between turn 20 and turn 30, with the
+    move information of turn 30 held fixed.
+    """
+    scenarios, _, _ = ctx.rosters(view)
+    m = coverage.BattleMatrices(ctx, table, battle, view, scenarios)
+    parts = {"consistent": coverage.threat_features(m, scenarios)}
+    parts["identity"] = coverage.identity_features(ctx, battle, view)
+    parts["tempo"] = coverage.active_features(m)
+    parts.update(
+        coverage.strategy_features(m, scenarios, coverage.hazards(battle, ctx), risk)
     )
-    old = tf.strategy_features(
-        old_m, scenarios, tf.hazards(old_b, ctx), {}, coverage_only=True
+    old_battle, old_view = coverage.prefix_view(battle, view)
+    old_m = coverage.BattleMatrices(
+        ctx, table, old_battle, old_view, scenarios, worlds=False
+    )
+    old = coverage.strategy_features(
+        old_m, scenarios, coverage.hazards(old_battle, ctx), {}, coverage_only=True
     )["coverage"]
     parts["progress"] = {
         k.replace("coverage_", "progress_"): value - old[k]
@@ -226,72 +261,69 @@ def tactical_joint(ctx, table, b, v, risk):
     return parts
 
 
-def additional(context, prefixes, tr, va, A, Z):
-    """Fit pressure, HP forecasts and coverage evidence within the outer fold."""
-    B, V, y, groups, chart = (
-        context[k] for k in ["battles", "views", "y", "groups", "chart"]
-    )
-    fitB = [B[i] for i in tr]
-    fitV = [V[i] for i in tr]
-    top = build_top_species(fitB)
-    ctx = TacticalContext().fit(fitB, fitV, chart, top)
-    samples = damage_samples(B, ctx)
-    which = np.full(len(B), -1, int)
+def zero_power_pressure(battles, views, y, groups, train_rows, ctx):
+    """Threat features with learned pressure for zero-power attacks (src/pressure.py)."""
+    samples = damage_samples(battles, ctx)
+    which = np.full(len(battles), -1, int)  # which fitted model serves each row
     power = []
-    for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=347).split(
-        np.zeros(len(tr)), y[tr], groups[tr]
-    ):
-        assert not set(groups[tr[a]]) & set(groups[tr[b]])
-        power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, tr[a])))
-        which[tr[b]] = len(power) - 1
+    for fit, held in inner_splits(train_rows, y, groups, 2, KNOCKOUT_SEED):
+        power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, fit)))
+        which[held] = len(power) - 1
     if FEATURE_FIXES:
 
-        def pressure_row(i, b, v):
-            # Rows outside the training fold average the two half models.
+        def row(i, b, v):
             if which[i] >= 0:
                 return power[which[i]].threat_features(b, v)
+            # Rows outside the training fold average the two half models.
             parts = [h.threat_features(b, v) for h in power]
             return {
                 c: (parts[0].get(c, 0.0) + parts[1].get(c, 0.0)) / 2
                 for c in set(parts[0]) | set(parts[1])
             }
 
-        pressure = numeric([pressure_row(i, b, v) for i, (b, v) in enumerate(zip(B, V))])
     else:
-        power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, tr)))
-        which[va] = len(power) - 1
-        pressure = numeric(
-            [power[which[i]].threat_features(b, v) for i, (b, v) in enumerate(zip(B, V))]
-        )
-    top_species, _ = vocabulary(fitV)
-    species = matrix([species_features(v, top_species) for v in V])
-    forecast, _ = crossfit_forecast(prefixes, y, groups, tr, va)
-    del power, samples, ctx
-    tc = tf.Context().fit(fitB, fitV, chart, top)
-    rows, _ = tf.evidence(fitB, fitV, tc)
-    tables = [tf.ResponseTable(rows)]
-    which = np.zeros(len(B), int)
-    for a, b in StratifiedGroupKFold(2, shuffle=True, random_state=41071).split(
-        np.zeros(len(tr)), y[tr], groups[tr]
-    ):
-        allowed = set(groups[tr[a]])
-        assert not allowed & set(groups[tr[b]])
-        tables.append(tf.ResponseTable([r for r in rows if r[0] in allowed]))
-        which[tr[b]] = len(tables) - 1
-    riskcols = [c for c in A if c.startswith("ko_p2_risk_")]
-    risks = np.zeros((len(B), len(riskcols)), np.float32)
-    risks[tr] = A[riskcols].to_numpy()
-    risks[va] = Z[riskcols].to_numpy()
+        power.append(EmpiricalTactics.from_context(ctx, fit_power(samples, train_rows)))
+        which[which < 0] = len(power) - 1
+
+        def row(i, b, v):
+            return power[which[i]].threat_features(b, v)
+
+    return numeric([row(i, b, v) for i, (b, v) in enumerate(zip(battles, views))])
+
+
+def tactical_features(context, train_rows, query_rows, train_X, query_X):
+    """The tactical view's extra blocks, one dict of tables per block name."""
+    battles, views, y, groups, chart = (
+        context[k] for k in ["battles", "views", "y", "groups", "chart"]
+    )
+    fit_battles, fit_views = subset(battles, train_rows), subset(views, train_rows)
+    ctx = coverage.Context().fit(
+        fit_battles, fit_views, chart, build_top_species(fit_battles)
+    )
+    # HP-response tables: one on the whole training fold, one per inner half.
+    rows = coverage.evidence(fit_battles, fit_views, ctx)
+    tables = [coverage.ResponseTable(rows)]
+    which = np.zeros(len(battles), int)
+    for fit, held in inner_splits(train_rows, y, groups, 2, RESPONSE_SEED):
+        allowed = set(groups[fit])
+        tables.append(coverage.ResponseTable([r for r in rows if r[0] in allowed]))
+        which[held] = len(tables) - 1
+    riskcols = [c for c in train_X if c.startswith("ko_p2_risk_")]
+    risks = np.zeros((len(battles), len(riskcols)), np.float32)
+    risks[train_rows] = train_X[riskcols].to_numpy()
+    risks[query_rows] = query_X[riskcols].to_numpy()
+    training = set(int(i) for i in train_rows)
     output = {}
-    training = set(int(i) for i in tr)
-    for i, (b, v) in enumerate(zip(B, V)):
+    for i, (b, v) in enumerate(zip(battles, views)):
         if FEATURE_FIXES:
             # Every P2 species with departure evidence, not only the common ones.
             risk = dict(context["riskmap"][i])
         else:
-            risk = {c[len("ko_p2_risk_") :]: float(q) for c, q in zip(riskcols, risks[i])}
+            risk = {
+                c[len("ko_p2_risk_") :]: float(q) for c, q in zip(riskcols, risks[i])
+            }
         if FEATURE_FIXES and i not in training:
-            halves = [tactical_joint(tc, tables[k], b, v, risk) for k in (1, 2)]
+            halves = [tactical_joint(ctx, tables[k], b, v, risk) for k in (1, 2)]
             parts = {
                 name: {
                     c: (halves[0][name][c] + halves[1][name].get(c, 0.0)) / 2
@@ -300,57 +332,65 @@ def additional(context, prefixes, tr, va, A, Z):
                 for name in halves[0]
             }
         else:
-            parts = tactical_joint(tc, tables[which[i]], b, v, risk)
+            parts = tactical_joint(ctx, tables[which[i]], b, v, risk)
         for name, f in parts.items():
             output.setdefault(name, []).append(f)
-    tactical = {n: numeric(rows) for n, rows in output.items()}
+    return {name: numeric(rows) for name, rows in output.items()}
+
+
+def additional(context, prefixes, train_rows, query_rows, train_X, query_X):
+    """Fit the blocks of the other three views inside the outer fold."""
+    battles, views, y, groups, chart = (
+        context[k] for k in ["battles", "views", "y", "groups", "chart"]
+    )
+    fit_battles, fit_views = subset(battles, train_rows), subset(views, train_rows)
+    ctx = TacticalContext().fit(
+        fit_battles, fit_views, chart, build_top_species(fit_battles)
+    )
+    pressure = zero_power_pressure(battles, views, y, groups, train_rows, ctx)
+    top_species, _ = vocabulary(fit_views)
+    species = matrix([species_features(v, top_species) for v in views])
+    forecast = crossfit_forecast(prefixes, y, groups, train_rows, query_rows)
+    del ctx
+    tactical = tactical_features(context, train_rows, query_rows, train_X, query_X)
     return dict(
         pressure=pressure, species=species, forecast=forecast, tactical=tactical
     )
 
 
-def components(A, Z, tr, va, new):
-    """Keep four separate views so the blend can combine their different errors."""
-    result = {"baseline": (A, Z)}
+def components(train_X, query_X, train_rows, query_rows, new):
+    """The four core views, kept separate so the blend can combine their errors.
+
+    baseline: the state view. species_forecast: plus species HP and forecasts.
+    zero_power: threat columns replaced by learned pressure. tactical: threat
+    columns replaced by the consistent move-set version, plus coverage blocks.
+    """
+
+    def rows(frame, index):
+        return frame.iloc[index].reset_index(drop=True)
+
+    def replaced(base, block):
+        out = base.copy()
+        out.loc[:, block.columns] = block.to_numpy()
+        return out
+
+    result = {"baseline": (train_X, query_X)}
+    pairs = [(train_X, train_rows), (query_X, query_rows)]
     result["species_forecast"] = tuple(
+        pd.concat([base, rows(new["species"], i), rows(new["forecast"], i)], axis=1)
+        for base, i in pairs
+    )
+    result["zero_power"] = tuple(
+        replaced(base, rows(new["pressure"], i)) for base, i in pairs
+    )
+    result["tactical"] = tuple(
         pd.concat(
-            [base]
-            + [
-                new[n].iloc[idx].reset_index(drop=True) for n in ["species", "forecast"]
-            ],
+            [replaced(base, rows(new["tactical"]["consistent"], i))]
+            + [rows(new["tactical"][n], i) for n in TACTICAL_GROUPS],
             axis=1,
         )
-        for base, idx in [(A, tr), (Z, va)]
+        for base, i in pairs
     )
-    p = []
-    t = []
-    for base, idx in [(A, tr), (Z, va)]:
-        C = new["pressure"].iloc[idx].reset_index(drop=True)
-        XX = base.copy()
-        XX.loc[:, C.columns] = C.to_numpy()
-        p.append(XX)
-        C = new["tactical"]["consistent"].iloc[idx].reset_index(drop=True)
-        XX = base.copy()
-        XX.loc[:, C.columns] = C.to_numpy()
-        t.append(
-            pd.concat(
-                [XX]
-                + [
-                    new["tactical"][n].iloc[idx].reset_index(drop=True)
-                    for n in [
-                        "identity",
-                        "tempo",
-                        "coverage",
-                        "trades",
-                        "hazard",
-                        "progress",
-                    ]
-                ],
-                axis=1,
-            )
-        )
-    result["zero_power"] = tuple(p)
-    result["tactical"] = tuple(t)
     for a, z in result.values():
         assert a.columns.is_unique and a.columns.equals(z.columns)
         assert not {"battle_id", "player_won"} & set(a.columns)

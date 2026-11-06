@@ -11,6 +11,14 @@ from .state import pressure, type_mult, BOOM, STATUS
 
 
 def make_events(B, V, stats, chart, include_entry=False):
+    """One row per departure: a Pokémon that fainted or left for the last time.
+
+    Returns the features X and a table M with the battle, side, species, HP,
+    age and target of each event. The target is known only on P1, where an
+    attack knockout is marked as fainted (1) and a last exit is not (0);
+    Explosion and Self-Destruct are left out. P2 events get target -1.
+    With include_entry the row also describes the Pokémon that came in next.
+    """
     rows = []
     meta = []
     for bi, (b, v) in enumerate(zip(B, V)):
@@ -164,6 +172,7 @@ def make_events(B, V, stats, chart, include_entry=False):
 
 
 def model():
+    """LightGBM classifier for recorded P1 knockouts."""
     return lgb.LGBMClassifier(
         n_estimators=260,
         learning_rate=0.04,
@@ -180,6 +189,11 @@ def model():
 
 
 def aggregate(V, M, p, top):
+    """Per-battle summaries of the P2 knockout scores p.
+
+    Includes the expected number of hidden knockouts, the HP they would remove,
+    and the risk and adjusted HP of each common species in top.
+    """
     rows = []
     by = defaultdict(list)
     for index, row in M[M.side == "p2"].iterrows():

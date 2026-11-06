@@ -6,6 +6,7 @@ All species, move metadata, set examples and HP-response estimates come from tra
 
 from collections import Counter, defaultdict
 from functools import lru_cache
+import hashlib
 import numpy as np
 from .tactics import TacticalContext, stage
 from .options import FEATURE_FIXES
@@ -43,14 +44,17 @@ RESIDUAL = {
     "bind",
 }
 STATUS = ["nostatus", "slp", "par", "psn", "tox", "frz", "brn", "fnt"]
-MODES = ["consistent"]
+# Variable-power attacks whose type can still meet an immunity.
+VARIABLE_POWER = {"return", "frustration", "present", "magnitude", "reversal", "flail"}
 
 
 def sigmoid(x):
+    """Logistic function, clipped to avoid overflow."""
     return 1 / (1 + np.exp(-np.clip(x, -35, 35)))
 
 
 def summaries(values):
+    """Sum, max and mean of a list."""
     x = np.asarray(values, float)
     return {
         "sum": float(x.sum()),
@@ -60,6 +64,7 @@ def summaries(values):
 
 
 def differences(f, stem):
+    """Add a P1 minus P2 column for every P1 column with this stem."""
     for key in list(f):
         if key.startswith("p1_" + stem):
             f["diff_" + key[3:]] = f[key] - f.get("p2_" + key[3:], 0.0)
@@ -67,9 +72,13 @@ def differences(f, stem):
 
 
 def evidence(battles, views, ctx):
-    """Conservative continuous intervals; their target is net HP loss."""
+    """HP lost by the defender in clean two-turn intervals, one row per attack.
+
+    An interval counts only when both active Pokémon stay in, the attacker uses
+    a fresh damaging move, and nothing else (recovery, residual damage, boosts,
+    sleep, a near-faint defender) can explain the HP change.
+    """
     rows = []
-    ratios = []
     for battle, view in zip(battles, views):
         for old, cur in zip(battle["battle_timeline"], battle["battle_timeline"][1:]):
             if any(
@@ -116,14 +125,19 @@ def evidence(battles, views, ctx):
                         base,
                     )
                 )
-                if base > 0.02 and loss > 0:
-                    ratios.append(loss / base)
-    calibration = float(np.clip(np.median(ratios), 0.05, 1.0)) if ratios else 0.4
-    return rows, calibration
+    return rows
 
 
 class ResponseTable:
-    def __init__(self, rows, calibration=None):
+    """HP lost per attack, learned from the clean intervals of evidence().
+
+    Estimates back off from (move, attacker, defender) to (move, attacker) and
+    (move, defender types), and from there to the move alone. calibration is the
+    median ratio between observed HP loss and the pressure proxy, which puts the
+    two on the same scale.
+    """
+
+    def __init__(self, rows):
         ratios = [r[5] / r[6] for r in rows if r[6] > 0.02 and r[5] > 0]
         self.calibration = (
             float(np.clip(np.median(ratios), 0.05, 1.0)) if ratios else 0.4
@@ -139,6 +153,7 @@ class ResponseTable:
 
     @lru_cache(maxsize=100000)
     def estimate(self, move, attacker, defender, types):
+        """Smoothed HP loss of the defender, and the number of exact-pair examples."""
         total, count = self.tables[0].get(move, (0.0, 0))
         if not count:
             return 0.0, 0.0
@@ -151,6 +166,8 @@ class ResponseTable:
 
 
 class Context(TacticalContext):
+    """TacticalContext plus the move sets (one to four moves) seen for each species."""
+
     def fit(self, battles, views, chart, top):
         super().fit(battles, views, chart, top)
         self.sets = defaultdict(Counter)
@@ -163,6 +180,13 @@ class Context(TacticalContext):
         return self
 
     def hypotheses(self, name, known):
+        """Up to four weighted move sets for a species, given its revealed moves.
+
+        A hypothesis is the revealed moves merged with a set seen in training,
+        when the result has at most four moves. Each training set counts as often
+        as it was seen, times 0.2 for every revealed move it lacks. With four
+        revealed moves, or a move-copying move, the revealed set is the only one.
+        """
         key = name, tuple(sorted(known))
         if key in self.set_cache:
             return self.set_cache[key]
@@ -188,6 +212,12 @@ class Context(TacticalContext):
 
 
 def hazards(battle, ctx):
+    """Probability that Spikes is down on each side at turn 30.
+
+    Set to 0.85 when the opponent uses Spikes, to 0.15 after a Rapid Spin that
+    is not blocked by a Ghost, and to at least 0.9 when a grounded Pokémon loses
+    an eighth or a sixteenth of its HP on entry.
+    """
     out = {}
     timeline = battle["battle_timeline"]
     for side, other in [("p1", "p2"), ("p2", "p1")]:
@@ -227,20 +257,24 @@ def hazards(battle, ctx):
 
 
 def state(view, side, name):
+    """Last recorded state of a Pokémon; full HP if never seen."""
     return view["states"][side].get(
         name, {"hp_pct": 1.0, "status": "nostatus", "boosts": {}, "effects": []}
     )
 
 
 def alive(view, side, roster):
+    """Members of the roster not recorded as fainted."""
     return [n for n in roster if state(view, side, n)["status"] != "fnt"]
 
 
 def remaining_count(view, side):
+    """Six minus the recorded faints."""
     return 6 - sum(st["status"] == "fnt" for st in view["states"][side].values())
 
 
 def action_score(st, known):
+    """Rough chance that a Pokémon can act this turn, given its status."""
     if st["status"] == "fnt":
         return 0.0
     if st["status"] == "frz":
@@ -251,6 +285,11 @@ def action_score(st, known):
 
 
 def accuracy(move):
+    """Hit chance of a move.
+
+    The original submission divided the stored value by 100 even though it is
+    already a fraction. FEATURE_FIXES reads it as stored.
+    """
     value = move.get("accuracy", 100)
     if isinstance(value, bool) or not value:
         return 1.0
@@ -262,9 +301,27 @@ def accuracy(move):
 
 
 class BattleMatrices:
-    def __init__(self, ctx, table, battle, view, scenarios, modes=None, worlds=True):
+    """Pairwise attack strength between the two teams of one battle.
+
+    For attacker i on one side and defender j on the other:
+
+    * attack[side][i, j]: the best accurate damaging move of each move-set
+      hypothesis, averaged over the hypotheses.
+    * known[side][i, j]: the best revealed damaging move.
+    * worlds[side][k, i, j]: like attack, for four fixed draws of a single
+      hypothesis per Pokémon, so a Pokémon keeps one move set against every
+      defender.
+    * boom[side][i, j]: Explosion or Self-Destruct, which the other three leave
+      out because the user faints.
+    * priority[side][i, j]: priority of the best revealed attack.
+
+    Strength is the relative pressure from TacticalContext.base, adjusted for
+    the boosts of the two active Pokémon and burn. Moves with zero recorded
+    power use the HP response learned in ResponseTable instead.
+    """
+
+    def __init__(self, ctx, table, battle, view, scenarios, worlds=True):
         self.ctx, self.table, self.battle, self.view = ctx, table, battle, view
-        modes = MODES if modes is None else modes
         self.active = {
             s: battle["battle_timeline"][-1][s + "_pokemon_state"]["name"]
             for s in ["p1", "p2"]
@@ -283,16 +340,16 @@ class BattleMatrices:
         self.worlds = {}
         for side, other in [("p1", "p2"), ("p2", "p1")]:
             shape = len(self.names[side]), len(self.names[other])
-            self.attack[side] = {mode: np.zeros(shape) for mode in modes}
-            self.known[side] = {mode: np.zeros(shape) for mode in modes}
+            self.attack[side] = np.zeros(shape)
+            self.known[side] = np.zeros(shape)
             self.boom[side] = np.zeros(shape)
             self.priority[side] = np.zeros(shape)
             self.worlds[side] = np.zeros((4, *shape))
             for i, a in enumerate(self.names[side]):
                 known = view["moves"][side].get(a, set())
                 hypotheses = ctx.hypotheses(a, known)
-                import hashlib
-
+                # Four evenly spaced draws over the hypothesis weights, shifted
+                # by a hash of the Pokémon so the draws differ between species.
                 offset = (
                     int(hashlib.sha256((side + ":" + a).encode()).hexdigest()[:8], 16)
                     / 2**32
@@ -308,7 +365,7 @@ class BattleMatrices:
                 sa = state(view, side, a)
                 for j, b in enumerate(self.names[other]):
                     sb = state(view, other, b)
-                    values, learned, accurate = {}, {}, {}
+                    learned, accurate = {}, {}
                     moves = set(known) | {m for m, _ in ctx.priors.get(a, [])}
                     moves |= set().union(*(set(ms) for ms, _ in hypotheses))
                     for m in moves:
@@ -324,23 +381,15 @@ class BattleMatrices:
                                 value /= stage(sb["boosts"].get(de, 0))
                             if sa["status"] == "brn" and cat == "physical":
                                 value *= 0.5
-                        values[m] = value
                         if (
                             md.get("category") not in {None, "status"}
                             and md.get("base_power", 0) <= 0
                         ):
                             types = tuple(sorted(ctx.stats.get(b, {}).get("types", [])))
                             response, _ = table.estimate(m, a, b, types)
+                            # An immune target takes nothing, whatever the learned response says.
                             if (
-                                m
-                                in {
-                                    "return",
-                                    "frustration",
-                                    "present",
-                                    "magnitude",
-                                    "reversal",
-                                    "flail",
-                                }
+                                m in VARIABLE_POWER
                                 and ctx.type_mult(md["type"], types) == 0
                             ):
                                 response = 0.0
@@ -348,45 +397,18 @@ class BattleMatrices:
                         else:
                             learned[m] = value
                         accurate[m] = learned[m] * accuracy(md)
-                    complete = len(known) >= 4 and not known & COPY
-                    for mode in modes:
-                        vals = (
-                            learned
-                            if mode in {"power", "corrected", "consistent"}
-                            else values
-                        )
-                        remove_boom = mode in {"sustain", "corrected", "consistent"}
-                        observed = max(
-                            (
-                                vals.get(m, 0.0)
-                                for m in known
-                                if not remove_boom or m not in BOOM
-                            ),
+                    self.attack[side][i, j] = sum(
+                        w
+                        * max(
+                            (accurate.get(m, 0.0) for m in ms if m not in BOOM),
                             default=0.0,
                         )
-                        prior = max(
-                            (
-                                vals.get(m, 0.0) * p
-                                for m, p in ctx.priors.get(a, [])
-                                if not remove_boom or m not in BOOM
-                            ),
-                            default=0.0,
-                        )
-                        if complete and mode in {"slots", "corrected", "consistent"}:
-                            prior = 0.0
-                        if mode == "consistent":
-                            total = sum(
-                                w
-                                * max(
-                                    (accurate.get(m, 0.0) for m in ms if m not in BOOM),
-                                    default=0.0,
-                                )
-                                for ms, w in hypotheses
-                            )
-                        else:
-                            total = max(observed, prior)
-                        self.attack[side][mode][i, j] = total
-                        self.known[side][mode][i, j] = observed
+                        for ms, w in hypotheses
+                    )
+                    self.known[side][i, j] = max(
+                        (learned.get(m, 0.0) for m in known if m not in BOOM),
+                        default=0.0,
+                    )
                     self.boom[side][i, j] = sum(
                         w
                         * max(
@@ -420,17 +442,15 @@ class BattleMatrices:
                         ctx.moves.get(best, {}).get("priority", 0) if best else 0
                     )
 
-    def array(self, side, mode, mine, theirs, known=False, world=None):
+    def array(self, side, mine, theirs, known=False, world=None):
+        """The rows of `mine` and columns of `theirs` from one of the matrices."""
         other = "p2" if side == "p1" else "p1"
-        source = (
-            self.known[side][mode]
-            if known
-            else (
-                self.worlds[side][world]
-                if world is not None
-                else self.attack[side][mode]
-            )
-        )
+        if known:
+            source = self.known[side]
+        elif world is not None:
+            source = self.worlds[side][world]
+        else:
+            source = self.attack[side]
         return source[
             np.ix_(
                 [self.index[side][n] for n in mine],
@@ -439,9 +459,14 @@ class BattleMatrices:
         ]
 
 
-def threat_features(matrices, scenarios, mode, world=None):
-    if mode == "consistent" and world is None:
-        examples = [threat_features(matrices, scenarios, mode, k) for k in range(4)]
+def threat_features(matrices, scenarios, world=None):
+    """Matchup margins between surviving Pokémon, as in TacticalContext.
+
+    Uses the move-set draws of BattleMatrices; without a world it averages
+    the four draws.
+    """
+    if world is None:
+        examples = [threat_features(matrices, scenarios, k) for k in range(4)]
         return {key: sum(row[key] for row in examples) / 4 for key in examples[0]}
     view = matrices.view
     result = defaultdict(float)
@@ -450,13 +475,13 @@ def threat_features(matrices, scenarios, mode, world=None):
         local = {}
         for side, other in [("p1", "p2"), ("p2", "p1")]:
             mine, theirs = names[side], names[other]
-            a = matrices.array(side, mode, mine, theirs, world=world)
-            b = matrices.array(other, mode, theirs, mine, world=world).T
+            a = matrices.array(side, mine, theirs, world=world)
+            b = matrices.array(other, theirs, mine, world=world).T
             hp1 = np.array([max(state(view, side, n)["hp_pct"], 0.05) for n in mine])
             hp2 = np.array([max(state(view, other, n)["hp_pct"], 0.05) for n in theirs])
             pressure = a / hp2[None, :]
             reply = b / hp1[:, None]
-            known = matrices.array(side, mode, mine, theirs, known=True) / hp2[None, :]
+            known = matrices.array(side, mine, theirs, known=True) / hp2[None, :]
             if mine and theirs:
                 margins = np.log1p(pressure) - np.log1p(reply)
                 worst = margins.min(axis=1)
@@ -506,6 +531,7 @@ def threat_features(matrices, scenarios, mode, world=None):
 
 
 def identity_features(ctx, battle, view):
+    """Species, status and known roles of the two active Pokémon."""
     f = {}
     for side in ["p1", "p2"]:
         st = battle["battle_timeline"][-1][side + "_pokemon_state"]
@@ -530,6 +556,7 @@ def identity_features(ctx, battle, view):
 
 
 def speed(ctx, battle, view, side, name):
+    """Speed from base stat and level, with boosts (active only) and paralysis."""
     base = ctx.stats.get(name, {}).get("base_spe", 50)
     level = (
         view["levels"].get(name, 100)
@@ -552,6 +579,7 @@ def speed(ctx, battle, view, side, name):
 
 
 def active_features(matrices):
+    """The active matchup: who is faster, who hits harder, who survives."""
     ctx, view, battle = matrices.ctx, matrices.view, matrices.battle
     f = {}
     speeds = {}
@@ -561,12 +589,12 @@ def active_features(matrices):
         known = view["moves"][side].get(name, set())
         i, j = matrices.index[side].get(name), matrices.index[other].get(enemy)
         damage = (
-            matrices.attack[side]["consistent"][i, j] * matrices.table.calibration
+            matrices.attack[side][i, j] * matrices.table.calibration
             if i is not None and j is not None
             else 0.0
         )
         reply = (
-            matrices.attack[other]["consistent"][j, i] * matrices.table.calibration
+            matrices.attack[other][j, i] * matrices.table.calibration
             if i is not None and j is not None
             else 0.0
         )
@@ -583,15 +611,13 @@ def active_features(matrices):
                 pp + "action_score": action_score(st, known),
                 pp + "recovery_known": int(bool(known & HEAL)),
                 pp + "resttalk": int({"rest", "sleeptalk"} <= known),
-                pp
-                + "response_priority": (
+                pp + "response_priority": (
                     float(matrices.priority[side][i, j])
                     if i is not None and j is not None
                     else 0.0
                 ),
                 pp + "moves_complete": int(len(known) >= 4 and not known & COPY),
-                pp
-                + "unknown_power_count": sum(
+                pp + "unknown_power_count": sum(
                     ctx.moves.get(m, {}).get("category") != "status"
                     and ctx.moves.get(m, {}).get("base_power", 0) <= 0
                     for m in known
@@ -623,13 +649,12 @@ def response_graph(matrices, mine, theirs, side, hazard, risk):
     other = "p2" if side == "p1" else "p1"
     view = matrices.view
     a = np.clip(
-        matrices.array(side, "consistent", mine, theirs) * matrices.table.calibration,
+        matrices.array(side, mine, theirs) * matrices.table.calibration,
         0,
         1.5,
     )
     b = np.clip(
-        matrices.array(other, "consistent", theirs, mine).T
-        * matrices.table.calibration,
+        matrices.array(other, theirs, mine).T * matrices.table.calibration,
         0,
         1.5,
     )
@@ -722,6 +747,12 @@ def response_graph(matrices, mine, theirs, side, hazard, risk):
 
 
 def graph_summary(answer, defender_hp):
+    """Summaries of an answer matrix (rows attackers, columns defenders).
+
+    unanswered adds up how far each attacker is from having an answer;
+    single_answer is how much attackers depend on their best answer alone;
+    fragility is the coverage lost when the most important defender is removed.
+    """
     n, m = answer.shape
     if not n or not m:
         return {
@@ -756,6 +787,13 @@ def graph_summary(answer, defender_hp):
 
 
 def strategy_features(matrices, scenarios, hazard, risk, coverage_only=False):
+    """Coverage, trade and hazard blocks, averaged over the likely P2 rosters.
+
+    coverage: how well each side can answer the other's attackers, also with
+    P2 answers weighted by their knockout risk. hazard: answers lost to Spikes
+    damage on entry. trades: whether an Explosion would remove an answer worth
+    more than the user.
+    """
     view = matrices.view
     out = {name: defaultdict(float) for name in ["coverage", "trades", "hazard"]}
     for roster, weight in scenarios:
@@ -861,7 +899,7 @@ def strategy_features(matrices, scenarios, hazard, risk, coverage_only=False):
 
 
 def prefix_view(battle, view, turns=20):
-    # Use the final move/roster information for both resource states.
+    """The battle cut at turn 20, keeping the moves and rosters known at turn 30."""
     b = dict(battle, battle_timeline=battle["battle_timeline"][:turns])
     v = dict(view)
     v["states"] = {

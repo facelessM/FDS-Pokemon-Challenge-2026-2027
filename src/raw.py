@@ -14,10 +14,12 @@ STATUSES = ["nostatus", "slp", "par", "psn", "tox", "brn", "frz", "fnt"]
 
 
 def token(value):
+    """A category value as a string without spaces."""
     return str(value).replace(" ", "_") if value is not None else "missing"
 
 
 def snapshot(row, side):
+    """One timeline row of one side, as numbers and category tokens."""
     state = row[side + "_pokemon_state"]
     move = row[side + "_move_details"]
     effects = [str(e) for e in state.get("effects", []) if e != "noeffect"]
@@ -43,11 +45,18 @@ def snapshot(row, side):
 
 
 def attach(out, prefix, values):
+    """Copy values into out under a prefix, keeping the c_ marker first."""
     for key, value in values.items():
         out[("c_" + prefix + key[2:]) if key.startswith("c_") else prefix + key] = value
 
 
 def summary(battle):
+    """The raw view of one battle.
+
+    Team and lead identities, mean, min and max of every numeric field over the
+    30 rows, the last active state, and the last state and revealed moves of
+    each species seen. Columns starting with c_ are categories.
+    """
     rows = battle["battle_timeline"]
     out = {}
     out["c_p1_lead"] = token(battle["p1_team_details"][0]["name"])
@@ -132,6 +141,7 @@ def summary(battle):
 
 
 def frame(rows):
+    """Raw summaries to a table: categories as strings, the rest as float32."""
     result = pd.DataFrame(rows)
     for c in result:
         result[c] = (

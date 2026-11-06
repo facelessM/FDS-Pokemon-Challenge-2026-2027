@@ -8,6 +8,14 @@ from .team_context import TeamContext, top_candidate_indices
 
 
 class MoveRecords:
+    """Win records of species with a given move, and of move pairs.
+
+    A revealed move counts for P1 with the battle's outcome, and for P2 with the
+    opposite outcome. Rates are smoothed with 10 wins in 20 battles. The same
+    records within one team are shrunk toward that team's overall record with
+    a weight of 20 battles; for P2 we average over the likely rosters.
+    """
+
     def fit(self, views, y):
         self.ctx = TeamContext(enriched=True, moves=True).fit(views, y)
         self.g = Counter()

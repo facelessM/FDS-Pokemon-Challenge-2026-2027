@@ -7,10 +7,18 @@ import numpy as np
 
 
 def load(path):
+    """Read a JSON-lines battle file."""
     return [json.loads(line) for line in open(path)]
 
 
 def describe(b):
+    """What the 30 turns reveal, in a form the feature code shares.
+
+    For each side: the last recorded state of every Pokémon seen, its revealed
+    moves, and the first and last turn it was on the field. Also P1's team,
+    the P2 species seen, and a hash of the timeline that groups identical
+    battles for validation.
+    """
     team = tuple(sorted(p["name"] for p in b["p1_team_details"]))
     items = tuple(
         sorted((p["name"], p.get("item", ""), p["level"]) for p in b["p1_team_details"])

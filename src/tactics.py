@@ -10,10 +10,18 @@ from .team_context import TeamContext, top_candidate_indices
 
 
 def stage(s):
+    """Gen 2 stat multiplier for a boost stage."""
     return (2 + s) / 2 if s >= 0 else 2 / (2 - s)
 
 
 class TacticalContext:
+    """Species stats, move details and move priors learned from training battles.
+
+    The priors list, for each species, the damaging moves it was seen using and
+    how often. They stand in for unrevealed moves when we estimate how hard one
+    Pokémon can hit another.
+    """
+
     def fit(self, battles, views, chart, top_species):
         self.chart = chart
         self.top = top_species
@@ -59,6 +67,11 @@ class TacticalContext:
         return v
 
     def base(self, a, b, m):
+        """Pressure of attacker a on defender b with move m, before boosts.
+
+        Base power times type effectiveness and STAB, scaled by the attacking
+        and defending base stats. A relative score, not a damage formula.
+        """
         k = (a, b, m)
         if k in self.static:
             return self.static[k]
@@ -85,6 +98,12 @@ class TacticalContext:
         return self.static[k]
 
     def attack(self, a, b, sa, sb, known, active_a, active_b):
+        """Best pressure of a on b with its known moves, and with its likely moves.
+
+        Boosts count only for the Pokémon on the field; a burn halves physical
+        attacks.
+        """
+
         def value(m):
             v, cat = self.base(a, b, m)
             if not v:
@@ -104,6 +123,7 @@ class TacticalContext:
         return observed, max(observed, prior)
 
     def rosters(self, v):
+        """Up to three P2 rosters that fit the revealed species, with weights."""
         ca = self.teams.candidates(v)
         w = self.teams.weights(v, ca)
         if not ca:
@@ -113,6 +133,13 @@ class TacticalContext:
         return [(ca[i], float(w[i] / mass)) for i in ix], ca, w
 
     def threat_features(self, b, v):
+        """Matchup margins between the surviving Pokémon of both sides.
+
+        For every surviving pair we compare how hard each side hits the other,
+        relative to remaining HP. Each attacker keeps its worst margin; a side
+        with a positive worst margin has a Pokémon the other side cannot stop.
+        Averaged over the likely P2 rosters.
+        """
         scenarios, _, _ = self.rosters(v)
         result = defaultdict(float)
         active = {
@@ -151,7 +178,7 @@ class TacticalContext:
                             active[me] == a,
                             active[op] == bb,
                         )
-                        kb, pb = self.attack(
+                        _, pb = self.attack(
                             bb,
                             a,
                             sb,

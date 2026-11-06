@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from . import state as deep
+from . import state
 from .tactics import TacticalContext, stage
 
 
@@ -44,7 +44,7 @@ def damage_samples(B, ctx):
                 ):
                     continue
                 dm = t[opp + "_move_details"]
-                if dm and dm["name"] in deep.RECOVERY:
+                if dm and dm["name"] in state.RECOVERY:
                     continue
                 loss = d0["hp_pct"] - d["hp_pct"]
                 if not 0.01 <= loss <= 0.8:
@@ -78,6 +78,12 @@ def damage_samples(B, ctx):
 
 
 def fit_power(samples, indices):
+    """Learned power of zero-power moves, from the samples of the given battles.
+
+    Effective power is put on the scale of base power with the median ratio of
+    known-power moves. A move needs five samples; species-specific values are
+    shrunk toward the pooled value with a weight of 20 samples.
+    """
     S = samples[samples.battle.isin(indices)]
     known = S[S.known_power > 0]
     scale = (
@@ -105,8 +111,11 @@ def fit_power(samples, indices):
 
 
 class EmpiricalTactics(TacticalContext):
+    """TacticalContext that uses learned power for moves with zero recorded power."""
+
     @classmethod
     def from_context(cls, original, fitted):
+        """Copy a fitted context, add the learned powers and rebuild the move priors."""
         obj = cls()
         obj.__dict__ = dict(original.__dict__)
         obj.static = {}
@@ -124,6 +133,7 @@ class EmpiricalTactics(TacticalContext):
         return obj
 
     def power(self, a, m):
+        """Recorded base power, or the learned one when it is zero."""
         move = self.moves[m]
         if move["base_power"] > 0:
             return move["base_power"]
@@ -132,6 +142,7 @@ class EmpiricalTactics(TacticalContext):
         )
 
     def base(self, a, b, m):
+        """Like TacticalContext.base, with learned power for zero-power moves."""
         k = a, b, m
         if k in self.static:
             return self.static[k]

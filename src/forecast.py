@@ -10,6 +10,7 @@ CATS = ["p1_species", "p1_last_move", "p2_species", "p2_last_move"]
 
 
 def forecaster():
+    """LightGBM regressor for the change in team HP over five turns."""
     return lgb.LGBMRegressor(
         n_estimators=220,
         learning_rate=0.04,
@@ -26,6 +27,11 @@ def forecaster():
 
 
 def fit_forecast(z, fit, target):
+    """Fit on the battles in fit and predict the next change for the target battles.
+
+    Returns, per target battle, the predicted change from turn 25 to 30 and from
+    turn 30 to 35, for P1 and P2.
+    """
     # Four prefix examples per training battle; prediction uses turns 25 and 30.
     train_rows = (5 * fit[:, None] + np.arange(4)).ravel()
     query_rows = (5 * target[:, None] + np.array([3, 4])).ravel()
@@ -41,6 +47,11 @@ def fit_forecast(z, fit, target):
 
 
 def crossfit_forecast(z, y, groups, tr, va):
+    """Five-turn forecast features, cross-fitted like the other auxiliary models.
+
+    next_delta and next_hp extend the visible trend past turn 30; last5_surprise
+    is how far the last visible five turns differed from the forecast.
+    """
     q = np.zeros((len(y), 2, 2))
     assigned = np.zeros(len(y), int)
     halves = []
@@ -71,13 +82,4 @@ def crossfit_forecast(z, y, groups, tr, va):
         frames["forecast_diff_" + key] = (
             frames["forecast_p1_" + key] - frames["forecast_p2_" + key]
         )
-    mean = z["target"][tr].mean(axis=(0, 1))
-    metrics = {
-        "validation_turn25_to30_mse": ((actual[va] - q[va, 0]) ** 2)
-        .mean(axis=0)
-        .tolist(),
-        "zero_change_mse": (actual[va] ** 2).mean(axis=0).tolist(),
-        "training_mean_mse": ((actual[va] - mean) ** 2).mean(axis=0).tolist(),
-        "side_order": ["p1", "p2"],
-    }
-    return pd.DataFrame(frames).astype(np.float32), metrics
+    return pd.DataFrame(frames).astype(np.float32)

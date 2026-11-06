@@ -29,6 +29,7 @@ PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm", "xgboost"]
 
 
 def digest(path):
+    """SHA-256 of a file."""
     result = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for block in iter(lambda: stream.read(4 * 1024 * 1024), b""):
@@ -37,6 +38,7 @@ def digest(path):
 
 
 def array_digest(value):
+    """SHA-256 of an array's bytes."""
     return hashlib.sha256(np.ascontiguousarray(value).tobytes()).hexdigest()
 
 
@@ -67,6 +69,7 @@ def signature(data, mode):
 
 
 def save_pickle(path, value):
+    """Write a compressed pickle atomically."""
     temporary = path.with_suffix(f".{os.getpid()}.tmp")
     with gzip.open(temporary, "wb", compresslevel=2) as stream:
         pickle.dump(value, stream, pickle.HIGHEST_PROTOCOL)
@@ -74,11 +77,13 @@ def save_pickle(path, value):
 
 
 def read_pickle(path):
+    """Read a compressed pickle."""
     with gzip.open(path, "rb") as stream:
         return pickle.load(stream)
 
 
 def save_npz(path, **arrays):
+    """Write a compressed npz atomically."""
     temporary = path.with_suffix(f".{os.getpid()}.tmp")
     with temporary.open("wb") as stream:
         np.savez_compressed(stream, **arrays)
@@ -86,6 +91,7 @@ def save_npz(path, **arrays):
 
 
 def prefix_inputs(battles):
+    """Five snapshot rows per battle for the HP forecast (see species.snapshots)."""
     rows, targets, levels = [], [], []
     for battle in battles:
         x, y, current = snapshots(battle)
@@ -100,6 +106,7 @@ def prefix_inputs(battles):
 
 
 def prefix_subset(prefixes, indices):
+    """The snapshot rows of the given battles."""
     rows = (5 * indices[:, None] + np.arange(5)).ravel()
     return dict(
         X=prefixes["X"].iloc[rows].reset_index(drop=True),
@@ -109,6 +116,11 @@ def prefix_subset(prefixes, indices):
 
 
 def prepare(data, output, mode):
+    """Check the data, build the folds and test routing, and save shared inputs.
+
+    The inputs file carries the run signature. A later call with different data,
+    code or package versions refuses to reuse the folder.
+    """
     key, provenance = signature(data, mode)
     output.mkdir(parents=True, exist_ok=True)
     path = output / "inputs.pkl.gz"
@@ -160,6 +172,11 @@ def prepare(data, output, mode):
 
 
 def fit_fold(data, output, mode, seed, fold):
+    """Build the five views for one fold, fit the models and save probabilities.
+
+    Runs in its own process. Validation rows and the test battles routed to this
+    fold are predicted together, so they get exactly the same features.
+    """
     started = time.time()
     key, _ = signature(data, mode)
     inputs = read_pickle(output / "inputs.pkl.gz")
@@ -202,17 +219,19 @@ def fit_fold(data, output, mode, seed, fold):
             [state.resources(b, v) for b, v in zip(battles, views)]
         ),
     )
-    A, Z = features.matrices(context, tr, query)
+    # The state view, then the blocks of the other views fitted in the same fold.
+    train_X, query_X = features.matrices(context, tr, query)
     print(f"{seed}/{fold}: reconstructed state", flush=True)
     original_indices = np.concatenate([np.arange(n), n + test_indices])
     prefixes = prefix_subset(inputs["prefixes"], original_indices)
-    additional = features.additional(context, prefixes, tr, query, A, Z)
-    matrices = features.components(A, Z, tr, query, additional)
+    additional = features.additional(context, prefixes, tr, query, train_X, query_X)
+    views_X = features.components(train_X, query_X, tr, query, additional)
     raw_frame = inputs["raw"].iloc[original_indices].reset_index(drop=True)
     del context, prefixes, inputs, additional, battles, views, train, test
     probabilities, columns = [], {}
     for name in COMPONENTS:
         if name == "raw_summary":
+            # One LightGBM model; categories are the levels seen in training.
             X, Q = raw_frame.iloc[tr].copy(), raw_frame.iloc[query].copy()
             for column in X:
                 if column.startswith("c_"):
@@ -223,7 +242,8 @@ def fit_fold(data, output, mode, seed, fold):
             p = model.predict_proba(Q)[:, 1]
             del model
         else:
-            X, Q = matrices[name]
+            # Each core view averages LightGBM and XGBoost.
+            X, Q = views_X[name]
             estimates = []
             for factory in [lgbm_final, xgb_final]:
                 model = factory().fit(X, labels[tr])
@@ -261,7 +281,7 @@ def fit_fold(data, output, mode, seed, fold):
             indent=2,
         )
     )
-    print(f"{seed}/{fold}: saved in {time.time()-started:.1f}s", flush=True)
+    print(f"{seed}/{fold}: saved in {time.time() - started:.1f}s", flush=True)
 
 
 def run_folds(data, output, mode, jobs):
@@ -312,6 +332,11 @@ def run_folds(data, output, mode, jobs):
 
 
 def collect(data, output, mode):
+    """Combine the fifteen folds: OOF metrics, and the submission in predict mode.
+
+    Each partition's five views are blended with equal weights; the three
+    partition probabilities are averaged and thresholded at 0.5.
+    """
     key, provenance = signature(data, mode)
     inputs = read_pickle(output / "inputs.pkl.gz")
     assert inputs["signature"] == key

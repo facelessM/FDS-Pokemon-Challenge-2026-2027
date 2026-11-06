@@ -32,10 +32,12 @@ PRIOR = 5.0  # pseudo-battles pulling a similar-team rate toward 0.5
 
 
 def p1_team(battle):
+    """Species of P1's team."""
     return {m["name"] for m in battle["p1_team_details"]}
 
 
 def p2_revealed(battle):
+    """P2 species seen in the 30 turns."""
     return {t["p2_pokemon_state"]["name"] for t in battle["battle_timeline"]}
 
 
@@ -52,6 +54,7 @@ class SimilarTeams:
         self.y = None
 
     def onehot(self, teams):
+        """Species sets to indicator rows."""
         out = np.zeros((len(teams), len(self.vocab)), np.float32)
         for i, team in enumerate(teams):
             for name in team:
@@ -141,6 +144,7 @@ def spikes_difference(battle, types):
 
 
 def spikes_feature(battles):
+    """spikes_difference for every battle, with types from the teams and leads."""
     types = {}
     for b in battles:
         for m in b["p1_team_details"]:
@@ -153,6 +157,7 @@ def spikes_feature(battles):
 
 
 def logit(p):
+    """Log-odds, clipped away from 0 and 1."""
     p = np.clip(p, 1e-6, 1 - 1e-6)
     return np.log(p / (1 - p))
 

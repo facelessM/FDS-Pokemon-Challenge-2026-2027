@@ -31,6 +31,7 @@ ROLES = {
 
 
 def vocabulary(views):
+    """The 20 most common P1 species, and the most common (species, move) pairs."""
     species = Counter(n for v in views for n in v["team"])
     top = [n for n, _ in sorted(species.items(), key=lambda z: (-z[1], z[0]))[:20]]
     pairs = Counter()
@@ -50,6 +51,7 @@ def vocabulary(views):
 
 
 def hp(v, side, name):
+    """Last recorded HP; unseen P1 members count as full."""
     st = v["states"][side].get(name)
     if st:
         return 0.0 if st["status"] == "fnt" else st["hp_pct"]
@@ -57,6 +59,7 @@ def hp(v, side, name):
 
 
 def species_features(v, top):
+    """HP of each common species on each side, split by status, with observation age."""
     out = {}
     for n in top:
         for side in ["p1", "p2"]:
@@ -78,6 +81,11 @@ def species_features(v, top):
 
 
 def snapshots(b):
+    """Battle state after turns 10, 15, 20, 25 and 30, for the HP forecast.
+
+    Returns the five feature rows, the change in team HP between consecutive
+    snapshots (the forecast target) and the team HP at each snapshot.
+    """
     states = {"p1": {}, "p2": {}}
     moves = {"p1": {}, "p2": {}}
     last_at = {"p1": {}, "p2": {}}
@@ -165,6 +173,7 @@ def snapshots(b):
 
 
 def matrix(rows):
+    """Feature dicts to a float32 table."""
     frame = pd.DataFrame(rows).fillna(0).astype(np.float32)
     assert frame.columns.is_unique and np.isfinite(frame.to_numpy()).all()
     return frame

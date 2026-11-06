@@ -17,11 +17,20 @@ def top_candidate_indices(weights, count=3):
 
 
 class TeamContext:
+    """Smoothed win records of known teams, and P2 roster matching.
+
+    Known teams are P1 teams and, when enriched, P2 teams with all six revealed.
+    A P2 team is matched to the known teams that contain every revealed P2
+    species; with moves, candidates are reweighted by how often each one was
+    seen with the revealed moves. Records are (wins + 5) / (games + 10).
+    """
+
     def __init__(self, enriched=False, moves=False):
         self.enriched = enriched
         self.use_moves = moves
 
     def candidates(self, v):
+        """Known teams that contain every revealed P2 species."""
         if len(v["seen"]) > 6:
             return []
         sets = [self.by.get(n, set()) for n in v["seen"]]
@@ -66,6 +75,7 @@ class TeamContext:
         return self
 
     def weights(self, v, ca):
+        """Probability of each candidate team, from its count and the revealed moves."""
         if not ca:
             return np.array([])
         log = np.log(np.array([self.count[k] for k in ca], float))
@@ -84,9 +94,11 @@ class TeamContext:
         return w / w.sum()
 
     def rate(self, k):
+        """Smoothed win rate of team k: five wins in ten games before its own."""
         return (self.wins.get(k, 0) + 5) / (self.games.get(k, 0) + 10)
 
     def transform(self, views, mode="base"):
+        """Record features; "posterior" adds the spread over the P2 candidates."""
         result = []
         for v in views:
             k = v["team"]

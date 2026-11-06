@@ -13,6 +13,7 @@ THRESHOLD = 0.5
 
 
 def folds(y, groups, seed):
+    """Five grouped, stratified folds and the held-out fold of every battle."""
     splits = list(
         StratifiedGroupKFold(N_FOLDS, shuffle=True, random_state=seed).split(
             np.zeros(len(y)), y, groups

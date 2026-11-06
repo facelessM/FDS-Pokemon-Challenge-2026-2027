@@ -25,6 +25,7 @@ PHASE = {"roar", "whirlwind"}
 
 
 def stats_context(battles):
+    """Species details (types, base stats) seen in the given battles, by name."""
     return {
         p["name"]: p
         for b in battles
@@ -33,10 +34,12 @@ def stats_context(battles):
 
 
 def stages(s):
+    """Gen 2 stat multiplier for a boost stage between -6 and +6."""
     return (2 + s) / 2 if s >= 0 else 2 / (2 - s)
 
 
 def type_mult(move, pokemon, chart):
+    """Type effectiveness of a move type against a Pokémon, from the supplied chart."""
     return math.prod(chart.get((move, t), 1.0) for t in pokemon.get("types", []))
 
 
@@ -65,6 +68,7 @@ def pressure(move, a, d, sa=None, sd=None, chart=None):
 
 
 def aggregate(out, prefix, values):
+    """Count, sum, mean and max of a list of values."""
     a = np.array(values, float)
     out[prefix + "_n"] = len(a)
     out[prefix + "_sum"] = float(a.sum())
@@ -73,6 +77,7 @@ def aggregate(out, prefix, values):
 
 
 def differences(out, group):
+    """Add a P1 minus P2 column for every P1 column of the group."""
     stem = "p1_" + group + "_"
     for k in list(out):
         if k.startswith(stem):
@@ -83,6 +88,13 @@ def differences(out, group):
 
 
 def departures(b, v, stats, chart):
+    """Evidence about Pokémon that left the field and never came back.
+
+    A Pokémon that leaves for the last time may have switched out or been
+    knocked out without a record. We describe each such exit: HP when it left,
+    how long ago, whether the opponent was attacking, whether the incoming
+    Pokémon was fresh, and whether the leaver could still recover HP.
+    """
     out = {}
     tl = b["battle_timeline"]
     for side, opp in [("p1", "p2"), ("p2", "p1")]:
@@ -164,6 +176,13 @@ def departures(b, v, stats, chart):
 
 
 def resources(b, v):
+    """HP and the means to use or regain it, per side at turn 30.
+
+    HP is split by recovery access (Rest, Sleep Talk, other healing moves) and
+    by status. We also count role holders (Rapid Spin, Spikes, Heal Bell,
+    Explosion, Curse) that are healthy or nearly fainted, and describe the
+    active Pokémon's sleep, toxic and effect streaks.
+    """
     out = {}
     tl = b["battle_timeline"]
     for side in ["p1", "p2"]:
@@ -277,6 +296,12 @@ def resources(b, v):
 
 
 def switches(b, v, stats, chart):
+    """How well each side switched, and Spikes evidence on entry.
+
+    For each switch we compare the opponent's last attack against the Pokémon
+    that left and the one that came in, and record the HP the incoming Pokémon
+    lost on entry (an eighth or a sixteenth points to Spikes).
+    """
     out = {}
     tl = b["battle_timeline"]
     for side, opp in [("p1", "p2"), ("p2", "p1")]:
@@ -285,7 +310,6 @@ def switches(b, v, stats, chart):
         last = {}
         hazard = 0.0
         hazevidence = []
-        ghost = False
         for i, t in enumerate(tl):
             own = t[side + "_pokemon_state"]
             enemy = t[opp + "_pokemon_state"]
