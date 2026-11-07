@@ -7,14 +7,17 @@ We predict whether Player 1 wins from its team, Player 2's lead and the first
 three grouped CV partitions, and two of them add a small logistic regression
 for similar-team records and Spikes.
 
-| Selected submission | Averaged OOF accuracy | Public score |
-|---|---:|---:|
-| `submission_matched_core_summary.csv`: five views | 0.7103 | 0.70466 |
-| `submission_team_similarity.csv`: corrected five views + similar teams | 0.7118 | 0.70200 |
-| `submission_tactical_team_spikes.csv`: corrected tactical view + similar teams and Spikes | 0.7085 | 0.70000 |
+| Selected submission | Averaged OOF accuracy | Public score | Private score |
+|---|---:|---:|---:|
+| `submission_matched_core_summary.csv`: five views | 0.7103 | 0.70466 | 0.69371 |
+| `submission_team_similarity.csv`: corrected five views + similar teams | 0.7118 | 0.70200 | 0.69514 |
+| `submission_tactical_team_spikes.csv`: corrected tactical view + similar teams and Spikes | 0.7085 | 0.70000 | **0.70200** |
 
-These battles were also used to compare candidates, so the CV results are
-development estimates, not independent holdout scores.
+We finished second on the private leaderboard with 0.70200. The single
+tactical view scored best on private data, while the five-view models ended
+between 0.6926 and 0.6951. These battles were also used to compare
+candidates, so the CV results are development estimates, not independent
+holdout scores; the private scores came out 0.6 to 1.7 points lower.
 
 ## Team
 
@@ -56,6 +59,25 @@ row is after its tie-breaking fix; its earlier submitted file used the previous 
 Trajectory and basic type summaries, hierarchy/CatBoost mixtures, uncertainty
 features, ordered observations, state-signal trials and learned mixture weights
 are also documented, including cases that did not justify a replacement.
+
+### Experiment branches
+
+Each branch keeps the code and log as they stood at one step, so an
+experiment can be read or rerun in its own context. `main` holds the full
+history; this branch reproduces the three selected submissions.
+
+| Branch | What it holds |
+|---|---|
+| `e06-model-comparison` | Starter template, E00 to E06 experiments and the experiment log |
+| `model-checks` | Wide LightGBM/XGBoost blend, untouched-seed checks, tuning and CatBoost checks |
+| `data-limits` | Limits analysis, the corrected reading of the faint counts, Gen 2 mechanics tables |
+| `compact-model` | Gen 2 role counts and the 176-column permutation-importance selection |
+| `team-records` | Recurring teams and their cross-fitted records |
+| `win-conditions-v2` | Unanswered Pokémon from a learned matchup chart |
+| `battle-state-reconstruction` | Reconstructed battle state and the audit fixes |
+| `corrected-features` | The four feature corrections as one change |
+| `decision-quality-features` | Move-quality features from a turn-by-turn value model |
+| `final-reproduction` | Code that rebuilds the three selected submissions |
 
 ## Method
 

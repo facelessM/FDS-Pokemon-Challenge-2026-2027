@@ -1,18 +1,21 @@
 {
   "matched_core_summary": {
     "public_score": 0.70466,
+    "private_score": 0.69371,
     "command": "python run.py predict --output outputs/original",
     "file": "outputs/original/submission_matched_core_summary.csv",
     "sha256": "2218959ce3dfd8c24a1e42df05a198f105dfbc8ffcfce91ac8e848ec8a1e4d26"
   },
   "team_similarity": {
     "public_score": 0.702,
+    "private_score": 0.69514,
     "command": "python run.py predict --feature-fixes --output outputs/fixed && python run.py stage --output outputs/fixed --view blend --signals team --name team_similarity",
     "file": "outputs/fixed/submission_team_similarity.csv",
     "sha256": "c7b27b935520f06e6bb61bb135d7679339bea41cfff2127fc4006d30cbf56bec"
   },
   "tactical_team_spikes": {
     "public_score": 0.7,
+    "private_score": 0.702,
     "command": "python run.py stage --output outputs/fixed --view tactical --signals team,spikes --name tactical_team_spikes",
     "file": "outputs/fixed/submission_tactical_team_spikes.csv",
     "sha256": "f1f3cfadc043a8f0fe398429a114d03ca3f88b07e31226733a74f6625fbcd569"

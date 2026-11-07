@@ -163,22 +163,39 @@ The public leaderboard scores 1,500 test battles, so its scores carry about ±1.
 
 A five-view version with both signals was submitted after the deadline and scored 0.69866. [selected_submissions.json](../results/selected_submissions.json) lists the command and SHA-256 of each selected file.
 
+## 21 Private leaderboard
+
+The private leaderboard scores the remaining test battles (about 3,500, roughly ±0.8 points of noise). We finished second with 0.70200 from `submission_tactical_team_spikes.csv`, up from seventh on the public board.
+
+| Submission | Averaged OOF accuracy | Public | Private |
+|---|---:|---:|---:|
+| `submission_tactical_team_spikes.csv` | 0.7085 | 0.70000 | 0.70200 |
+| `submission_team_similarity.csv` | 0.7118 | 0.70200 | 0.69514 |
+| `submission_matched_core_summary.csv` | 0.7103 | 0.70466 | 0.69371 |
+
+Three observations, each within or close to the private board's noise:
+
+* Private scores rose with the development steps, from 0.65914 for the turn-30 state model to 0.70200, so the steps kept on CV also helped on unseen battles.
+* CV was optimistic by 0.6 to 1.7 points, as expected after many comparisons on the same battles. The gap was smallest for the single tactical view and largest for the original five views.
+* Both single tactical views (0.70200 and 0.69771) scored above all four five-view submissions (0.69257 to 0.69514), and the compact model scored below the wide model it was selected from (0.67171 against 0.67828). The five-view mixture and the compact column set both came from more choices made on the same battles.
+
 ## Submitted approaches in order
 
-| Order | Approach or file | Development stage |
-|---|---|---|
-| 1 | Turn-30 state model | E01 |
-| 2 | First wide LightGBM/XGBoost blend | Move usage, effects and surviving species |
-| 3 | `compact_blend.csv` | Role counts and feature selection |
-| 4 | `team_blend.csv` | Team records, before the tie-breaking correction |
-| 5 | `wincon_blend.csv` | Species-pair exchange chart |
-| 6 | `submission_state_reconstruction_deterministic.csv` | Reconstructed resources and recording fixes |
-| 7 | `submission_species_forecast.csv` | Species state and five-turn forecasts |
-| 8 | `submission_tactical_coverage.csv` | Move hypotheses and defensive coverage |
-| 9 | `submission_matched_core_summary.csv` | Five views with matching three-partition prediction |
-| 10 | Corrected five views | Four feature corrections |
-| 11 | `submission_team_similarity.csv` | Similar-team second stage |
-| 12 | Original tactical view with similar teams and Spikes | Second stage on the original run |
-| 13 | `submission_tactical_team_spikes.csv` | Similar teams and Spikes on the corrected tactical view |
+| Order | Approach or file | Development stage | Public | Private |
+|---|---|---|---:|---:|
+| 1 | Turn-30 state model | E01 | 0.67866 | 0.65914 |
+| 2 | First wide LightGBM/XGBoost blend | Move usage, effects and surviving species | 0.68933 | 0.67828 |
+| 3 | `compact_blend.csv` | Role counts and feature selection | 0.68933 | 0.67171 |
+| 4 | `team_blend.csv` | Team records, before the tie-breaking correction | 0.69066 | 0.68257 |
+| 5 | `wincon_blend.csv` | Species-pair exchange chart | 0.68200 | 0.68685 |
+| 6 | `submission_state_reconstruction_deterministic.csv` | Reconstructed resources and recording fixes | 0.69533 | 0.69342 |
+| 7 | `submission_species_forecast.csv` | Species state and five-turn forecasts | 0.69000 | 0.69171 |
+| 8 | `submission_tactical_coverage.csv` | Move hypotheses and defensive coverage | 0.68933 | 0.69428 |
+| 9 | `submission_matched_core_summary.csv` | Five views with matching three-partition prediction | 0.70466 | 0.69371 |
+| 10 | Corrected five views | Four feature corrections | 0.69333 | 0.69314 |
+| 11 | `submission_team_similarity.csv` | Similar-team second stage | 0.70200 | 0.69514 |
+| 12 | Original tactical view with similar teams and Spikes | Second stage on the original run | 0.69600 | 0.69771 |
+| 13 | `submission_tactical_team_spikes.csv` | Similar teams and Spikes on the corrected tactical view | 0.70000 | 0.70200 |
+| 14 | Corrected five views with similar teams and Spikes (after the deadline) | Second stage on the corrected run | 0.69866 | 0.69257 |
 
 The selected training entry point remains separate from the experiment history.
