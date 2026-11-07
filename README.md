@@ -64,7 +64,7 @@ are also documented, including cases that did not justify a replacement.
 
 Each branch keeps the code and log as they stood at one step, so an
 experiment can be read or rerun in its own context. `main` holds the full
-history; this branch reproduces the three selected submissions.
+history and the code that reproduces the three selected submissions.
 
 | Branch | What it holds |
 |---|---|
