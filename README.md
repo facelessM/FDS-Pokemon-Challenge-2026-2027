@@ -18,6 +18,10 @@ tactical view scored best on private data, while the five-view models ended
 between 0.6926 and 0.6951. These battles were also used to compare
 candidates, so the CV results are development estimates, not independent
 holdout scores; the private scores came out 0.6 to 1.7 points lower.
+Errors concentrate in close calls: for `tactical_team_spikes`, the 25.5% of
+battles predicted within 10 points of 50/50 are right 53.0% of the time,
+against 89.4% for the 28.0% predicted more than 30 points away
+([details](docs/development_history.md#22-close-calls)).
 
 ## Team
 

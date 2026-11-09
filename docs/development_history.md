@@ -179,6 +179,19 @@ Three observations, each within or close to the private board's noise:
 * CV was optimistic by 0.6 to 1.7 points, as expected after many comparisons on the same battles. The gap was smallest for the single tactical view and largest for the original five views.
 * Both single tactical views (0.70200 and 0.69771) scored above all four five-view submissions (0.69257 to 0.69514), and the compact model scored below the wide model it was selected from (0.67171 against 0.67828). The five-view mixture and the compact column set both came from more choices made on the same battles.
 
+## 22 Close calls
+
+`analysis/close_calls.py` groups battles by how far each selected model's pooled OOF probability is from 0.5. Errors concentrate in the close calls for all three models:
+
+| Distance from 0.5 | `matched_core_summary` share / accuracy | `team_similarity` share / accuracy | `tactical_team_spikes` share / accuracy |
+|---|---:|---:|---:|
+| under 10 points | 27.9% / 56.2% | 25.4% / 55.8% | 25.5% / 53.0% |
+| 10 to 20 | 26.2% / 63.6% | 24.5% / 62.1% | 24.3% / 64.2% |
+| 20 to 30 | 22.3% / 78.0% | 21.8% / 76.4% | 22.2% / 75.3% |
+| over 30 | 23.6% / 90.2% | 28.3% / 88.8% | 28.0% / 89.4% |
+
+About a quarter of battles stay close to a coin flip for every model. They are most likely decided by what the data does not show: P2's unrevealed Pokémon and moves, the turns after 30 and the players themselves.
+
 ## Submitted approaches in order
 
 | Order | Approach or file | Development stage | Public | Private |
