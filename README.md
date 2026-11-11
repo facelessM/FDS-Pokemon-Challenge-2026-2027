@@ -151,8 +151,16 @@ Each `predict` builds every feature from the competition files, trains all
 fifteen fold ensembles, evaluates OOF predictions and writes a submission plus
 per-fold probabilities, logs and `metrics.json`. It takes about two and a half
 hours on two cores. `stage` takes a few minutes. The expected SHA-256 of each file is in
-[selected_submissions.json](results/selected_submissions.json). Two workers are
-the default; use `--jobs 1` if memory is limited.
+[selected_submissions.json](results/selected_submissions.json), and the files
+themselves are in [results/submitted](results/submitted). Two workers are the
+default; use `--jobs 1` if memory is limited.
+
+On our machine the rebuilt files match the submitted ones byte for byte. Tree
+models are sensitive to floating-point differences between processors, so on
+other hardware a few borderline predictions can flip. On Kaggle the notebook's
+rebuilt files agree with the submitted ones on 4,968, 4,964 and 4,922 of the
+5,000 test battles (99.4%, 99.3% and 98.4%), and pooled CV stays within 0.12
+points (0.7095, 0.7106 and 0.7085 against 0.7103, 0.7118 and 0.7085).
 
 To run CV without loading the test set:
 
