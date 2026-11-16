@@ -23,6 +23,13 @@ battles predicted within 10 points of 50/50 are right 53.0% of the time,
 against 89.4% for the 28.0% predicted more than 30 points away
 ([details](docs/development_history.md#22-close-calls)).
 
+## Report and presentation
+
+- [Methodology report](docs/report/methodology_report.pdf): the full write-up of the
+  data findings, validation, features, models and final selection.
+- [Presentation](docs/presentation/A_wild_Gengar_Appears.pdf) given in class on
+  16 November 2026 ([PowerPoint version](docs/presentation/A_wild_Gengar_Appears.pptx)).
+
 ## Team
 
 | Name | Student ID | Email |
